@@ -1,0 +1,44 @@
+{
+  "name": "thepro",
+  "version": "0.0.1",
+  "description": "thepro",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adriamb/thepro.git"
+  },
+  "keywords": [
+  ],
+  "author": [
+	"Juan Carlos Escamilla",
+	"Blanca Baron",
+	"Adria Massanet"
+  ]
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/adriamb/thepro/issues"
+  },
+  "devDependencies": {
+    "async": "^2.4.0",
+    "bignumber.js": "^4.0.2",
+    "eslint-config-airbnb": "^15.0.1",
+    "eslint-plugin-import": "^2.6.0",
+    "eslint-plugin-jsx-a11y": "^6.0.0",
+    "eslint-plugin-react": "^7.1.0",
+    "ethereumjs-testrpc": "^3.0.5",
+    "random-bytes": "^1.0.0",
+    "truffle": "3.2.4",
+    "truffle-hdwallet-provider": "0.0.3",
+    "web3": "^0.18.4"
+  },
+  "homepage": "https://github.com/adriamb/thepro#readme",
+  "dependencies": {
+    "babel-eslint": "^7.2.3"
+  }
+}
