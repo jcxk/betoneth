@@ -161,7 +161,7 @@ contract TheProjectBase {
           
            lastCheckedBetNo++;
 
-           if (onetime || msg.gas < 30000 ) {
+           if (onetime || msg.gas < 100000 ) {
                break;
            }
         }
