@@ -13,13 +13,12 @@
     "type": "git",
     "url": "git+https://github.com/adriamb/thepro.git"
   },
-  "keywords": [
-  ],
+  "keywords": [],
   "author": [
-	"Juan Carlos Escamilla",
-	"Blanca Baron",
-	"Adria Massanet"
-  ]
+    "Juan Carlos Escamilla",
+    "Blanca Baron",
+    "Adria Massanet <adria@codecontext.io>"
+  ],
   "license": "GPL-3.0",
   "bugs": {
     "url": "https://github.com/adriamb/thepro/issues"

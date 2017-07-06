@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./SafeMath.sol";
 
-contract TheProject {
+contract TheProjectBase {
     
     using SafeMath for uint;
 
@@ -95,14 +95,6 @@ contract TheProject {
             }
         }
         
-    }
-
-    function diff(uint a, uint b) internal returns (uint) {
-       if (a > b) {
-           return a.sub(b);
-       } else {
-           return b.sub(a);
-       }
     }
 
     function forceResolveRound(uint roundNo) {
@@ -230,4 +222,16 @@ contract TheProject {
         account = rounds[roundNo].bets[betNo].account;
         target = rounds[roundNo].bets[betNo].target;
     }
+    
+    /// generic helpers ------------------------------------------------
+
+    function diff(uint a, uint b) internal returns (uint) {
+       if (a > b) {
+           return a.sub(b);
+       } else {
+           return b.sub(a);
+       }
+    }
+
+
 }
