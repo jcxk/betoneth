@@ -1,5 +1,5 @@
-var TheProjectOraclize = artifacts.require("./TheProjectOraclize.sol");
+var TheProjectMock = artifacts.require("./TheProjectMock.sol");
 
 module.exports = function(deployer) {
-  deployer.deploy(TheProjectOraclize);
+  deployer.deploy(TheProjectMock);
 };

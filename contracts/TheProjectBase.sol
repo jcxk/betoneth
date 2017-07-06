@@ -12,6 +12,7 @@ contract TheProjectBase {
     event LogError(string error);
     event LogPrize(uint round, address winner, uint amount);
     event LogBet(address account, address target, uint amount);
+    event LogRoundTargetSet(uint round, uint amount);
 
     struct Bet {
         address account;
@@ -30,8 +31,7 @@ contract TheProjectBase {
         CLOSED,        // Closed to bets, waiting oracle to set the price
         TARGETSET,     // Oracle set the price, calculating best bet
         TARGETLOST,    // Oracle cannot set the price [end]
-        RESOLVED,      // Bet calculated & paid [end]
-        UNKNOWN
+        RESOLVED       // Bet calculated & paid [end]
     }
 
     struct Round {
@@ -54,8 +54,7 @@ contract TheProjectBase {
     uint    public round;
 
 
-    function TheProject() {
-        createRoundIfRequiered();
+    function TheProjectBase() {
     }
 
     function getBetInEths() constant returns (uint) {
@@ -75,7 +74,7 @@ contract TheProjectBase {
         if (round.target > 0) {
             return RoundStatus.TARGETSET;            
         }
-        if (round.target == 0  && round.revealDate > now + 1 days) {
+        if (round.target == 0  && now > round.revealDate + 1 days) {
             return RoundStatus.TARGETLOST;
         }
         return RoundStatus.CLOSED;
@@ -85,13 +84,17 @@ contract TheProjectBase {
         
         milliDollarsPerEth = _milliDollarsPerEth;
 
-        while (lastRevealedRound + 1 < rounds.length ) {
-            if (getRoundStatus(lastRevealedRound+1)!=RoundStatus.CLOSED) {
+        while (lastRevealedRound  < rounds.length ) {
+            if (getRoundStatus(lastRevealedRound)!=RoundStatus.CLOSED) {
                 break;
             }
-            if (now >= rounds[lastRevealedRound+1].revealDate &&
-                now < rounds[lastRevealedRound+1].revealDate + 1 days) {
-                rounds[lastRevealedRound+1].target = _milliDollarsPerEth;
+
+            if (now >= rounds[lastRevealedRound].revealDate &&
+                now < rounds[lastRevealedRound].revealDate + 1 days) {
+                rounds[lastRevealedRound].target = _milliDollarsPerEth;
+
+                LogRoundTargetSet(lastRevealedRound,_milliDollarsPerEth);
+
             }
         }
         
@@ -101,20 +104,22 @@ contract TheProjectBase {
         resolveRound(roundNo, false);
     }
 
-    function createRoundIfRequiered() internal {
+    function createRoundIfRequiered() {
 
         uint lastCloseDate;
-        uint closeDate = ((now % 1 days) + 1) * 1 days;
+        uint closeDate = (now - (now % 1 days) ) + 1 days;
 
-        if (rounds.length > 0) {
+       if (rounds.length > 0) {
             lastCloseDate = rounds[rounds.length-1].closeDate;
         } 
-        
+ 
         if (lastCloseDate != closeDate) {
             rounds.length++;
+         
             rounds[rounds.length-1].closeDate = closeDate;
             rounds[rounds.length-1].revealDate = closeDate.add(TIME_REVEAL);
             rounds[rounds.length-1].betAmount = getBetInEths();
+            
         }
     }
 
@@ -196,6 +201,24 @@ contract TheProjectBase {
 
     /// web3 helpers ------------------------------------------------
     
+    function remainingLastRoundTime() constant returns (uint) {
+
+        if (rounds[rounds.length-1].closeDate > now) {
+            return rounds[rounds.length-1].closeDate.sub(now);
+        }
+
+        return 0;
+    }
+
+    function remainingRevealTime(uint roundNo) constant returns (uint) {
+
+        if (rounds[roundNo].revealDate > now) {
+            return rounds[roundNo].revealDate.sub(now);
+        }
+
+        return 0;
+    }
+
     function getRoundCount() constant returns (uint) {
         return rounds.length;
     }
