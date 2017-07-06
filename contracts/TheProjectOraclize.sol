@@ -26,7 +26,7 @@ contract TheProjectOraclize is TheProjectBase, usingOraclize {
             LogError("Oraclize query was NOT sent, please add some ETH to cover for the query fee");
             return;
         }
-        oraclize_query(60, "URL", "json(https://api.kraken.com/0/public/Ticker?pair=ETHXBT).result.XETHXXBT.c.0");
+        oraclize_query(60, "URL", "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd");
     }
     
     function stringToUint(string s) internal constant returns (uint result) {
