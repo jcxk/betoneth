@@ -11,7 +11,7 @@ contract TheProjectBase {
 
     event LogError(string error);
     event LogPrize(uint round, address winner, uint amount);
-    event LogBet(address account, address target, uint amount);
+    event LogBet(uint round, address account, uint target, uint amount);
     event LogRoundTargetSet(uint round, uint amount);
 
     struct Bet {
@@ -40,6 +40,7 @@ contract TheProjectBase {
         uint     revealDate; // date the winner is revealed
 
         Bet[]    bets;
+        mapping(uint=>Bet) betTargets;
         
         uint     target;      // is the goal price
 
@@ -185,6 +186,10 @@ contract TheProjectBase {
 
         Round storage round = rounds[rounds.length-1];
        
+        if (round.betTargets[target].account != 0 ) {
+            throw;
+        }
+
         assert(msg.value >= round.betAmount);
         
         if (msg.value > round.betAmount) {
@@ -195,13 +200,33 @@ contract TheProjectBase {
         round.bets[round.bets.length-1].account = msg.sender;
         round.bets[round.bets.length-1].target = target;
 
+        round.betTargets[target] = round.bets[round.bets.length-1];
+
+        LogBet(rounds.length-1,msg.sender,target,round.betAmount);
+
         autoResolvePreviousRounds();
         
     }
 
     /// web3 helpers ------------------------------------------------
+
+    function getCurrentRound() constant returns (uint) {
+        if (getRoundStatus(rounds.length-1)==RoundStatus.OPEN) {
+            return rounds.length-1;
+        }
+        return rounds.length;
+    }
+
+    function isBetAvailable(uint target) returns (bool) {
+
+        if (getRoundStatus(rounds.length-1)!=RoundStatus.OPEN) {
+            return true;
+        }
+
+        return rounds[rounds.length-1].betTargets[target].account == 0;
+    }
     
-    function remainingLastRoundTime() constant returns (uint) {
+    function remainingRoundTime() constant returns (uint) {
 
         if (rounds[rounds.length-1].closeDate > now) {
             return rounds[rounds.length-1].closeDate.sub(now);

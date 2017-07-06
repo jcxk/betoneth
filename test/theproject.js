@@ -37,19 +37,34 @@ contract("first test", (accounts) => {
         await thepro.createRoundIfRequiered()
     });
 
-    it("user1 bets 250, user2 bets 245, user2 wins", async () => {
+    it("a bet is logged", async () => {
+
+        const betValue = await thepro.getBetInEths()
+        const roundNo = await thepro.getCurrentRound()
+
+        const trn = await thepro.bet(260000, {from : user1 , value : betValue})
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogBet");
+        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
+        assert.equal(trn.logs[ 0 ].args.account, user1);
+        assert.equal(trn.logs[ 0 ].args.target.toNumber(), 260000);
+        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.toNumber());
+    
+    });
+
+    it("two bets, one win, forcing resolve", async () => {
         
         const betValue = await thepro.getBetInEths()
-        const roundNo = await thepro.getRoundCount() - 1
+        const roundNo = await thepro.getCurrentRound()
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), OPEN);
 
         await thepro.bet(260000, {from : user1 , value : betValue})
         await thepro.bet(245000, {from : user2 , value : betValue})
 
-        assert.isTrue((await thepro.remainingLastRoundTime()).toNumber() > 0)      
+        assert.isTrue((await thepro.remainingRoundTime()).toNumber() > 0)      
         await timeTravel((86400)+1); // Wait 1 day
-        assert.isTrue((await thepro.remainingLastRoundTime()).toNumber() == 0)  
+        assert.isTrue((await thepro.remainingRoundTime()).toNumber() == 0)  
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), CLOSED);
 
@@ -60,15 +75,84 @@ contract("first test", (accounts) => {
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), TARGETSET);
-        const tx = await thepro.forceResolveRound(roundNo)
-        assert.equal(tx.logs.length, 1);
-        assert.equal(tx.logs[ 0 ].event, "LogPrize");
-        assert.equal(tx.logs[ 0 ].args.round.toNumber(), roundNo);
-        assert.equal(tx.logs[ 0 ].args.winner, user2);
-        assert.equal(tx.logs[ 0 ].args.amount.toNumber(), betValue.mul(2).toNumber());
+        const trn = await thepro.forceResolveRound(roundNo)
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogPrize");
+        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
+        assert.equal(trn.logs[ 0 ].args.winner, user2);
+        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.mul(2).toNumber());
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), RESOLVED);
 
     });
 
+    it("two bets in two rounds should autoresolve", async () => {
+        
+        const betValue = await thepro.getBetInEths()
+        const roundNo1 = await thepro.getCurrentRound()
+
+        await thepro.bet(260000, {from : user1 , value : betValue})
+        await thepro.bet(245000, {from : user2 , value : betValue})
+
+        await timeTravel(86400*15+1); // Wait 15 days
+        await thepro.__updateEthPrice(250000)  //   and set to 250$/h
+
+        const roundNo2 = await thepro.getCurrentRound()
+
+        await thepro.bet(260000, {from : user1 , value : betValue})
+        const trn = await thepro.bet(245000, {from : user2 , value : betValue})
+        assert.equal(trn.logs.length, 2);
+        assert.equal(trn.logs[ 1 ].event, "LogPrize");
+        assert.equal(trn.logs[ 1 ].args.round.toNumber(), roundNo1);
+        assert.equal(trn.logs[ 1 ].args.winner, user2);
+        assert.equal(trn.logs[ 1 ].args.amount.toNumber(), betValue.mul(2).toNumber());
+    });
+
+
+    it("two bets cannot have the same amount", async () => {
+        
+        const betValue = await thepro.getBetInEths()
+        const roundNo = await thepro.getCurrentRound()
+
+        await thepro.bet(260000, {from : user1 , value : betValue})
+        try {
+            await thepro.bet(260000, {from : user2 , value : betValue})   
+        } catch (error) {
+            return assertJump(error);
+        }
+        assert.fail("should have thrown before");
+    
+    });
+
+    it("cannot diposit less ether", async () => {
+        
+        const betValue = await thepro.getBetInEths()
+        const roundNo = await thepro.getCurrentRound()
+
+        try {
+            await thepro.bet(260000, {from : user1 , value : betValue.minus(1)})
+        } catch (error) {
+            return assertJump(error);
+        }
+        assert.fail("should have thrown before");
+    
+    });
+
+    it("if more ether is sent, excess is refunded", async () => {
+        
+        const betValue = await thepro.getBetInEths()
+        const roundNo = await thepro.getCurrentRound()
+
+        const balance = web3.eth.getBalance(user1);
+
+        const trn = await thepro.bet(260000, {from : user1 , value : betValue.plus(1)})
+        const tx = web3.eth.getTransaction(trn.tx);
+        const txPrice = web3.toBigNumber(trn.receipt.gasUsed).mul(tx.gasPrice);
+
+        const expectedBalance = balance.minus(betValue).minus(txPrice)
+        assert.equal(web3.eth.getBalance(user1).toNumber(), expectedBalance.toNumber());
+    
+    });
+
 });
+

@@ -2,8 +2,8 @@
 
 module.exports = function checkInvalidJump(error) {
     assert.isAbove(
-    error.message.search("invalid JUMP"),
+    error.message.search("invalid opcode"),
     -1,
-    "Invalid JUMP error must be returned",
+    "invalid opcode error must be returned",
   );
 };
