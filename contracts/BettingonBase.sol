@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./SafeMath.sol";
 
-contract TheProjectBase {
+contract BettingonBase {
 
     using SafeMath for uint;
 
@@ -74,7 +74,7 @@ contract TheProjectBase {
 
     /// code ===================================================
 
-    function TheProjectBase(
+    function BettingonBase(
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinRevealLength,

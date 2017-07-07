@@ -1,11 +1,11 @@
 pragma solidity ^0.4.11;
 
-import "./TheProjectBase.sol";
+import "./BettingonBase.sol";
 import "./OraclizeAPI04.sol";
 
-contract TheProjectOraclize is TheProjectBase, usingOraclize {
+contract BettingonOraclize is BettingonBase, usingOraclize {
 
-   function TheProjectOraclize(
+   function BettingonOraclize(
 
         uint    _betCycleLength,
         uint    _betCycleOffset,
@@ -16,7 +16,7 @@ contract TheProjectOraclize is TheProjectBase, usingOraclize {
         address _platformFeeAddress,
         uint    _boatFee
 
-    ) TheProjectBase(
+    ) BettingonBase(
         _betCycleLength,
         _betCycleOffset,
         _betMinReveaLength,

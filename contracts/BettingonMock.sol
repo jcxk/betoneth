@@ -1,10 +1,10 @@
 pragma solidity ^0.4.11;
 
-import "./TheProjectBase.sol";
+import "./BettingonBase.sol";
 
-contract TheProjectMock is TheProjectBase {
+contract BettingonMock is BettingonBase {
     
-   function TheProjectMock(
+   function BettingonMock(
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinReveaLength,
@@ -14,7 +14,7 @@ contract TheProjectMock is TheProjectBase {
         address _platformFeeAddress,
         uint    _boatFee
 
-    ) TheProjectBase(
+    ) BettingonBase(
         _betCycleLength,
         _betCycleOffset,
         _betMinReveaLength,
