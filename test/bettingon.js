@@ -81,7 +81,7 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        const trn = await bon.bet(260000, {from : user1 , value : betValue})
+        const trn = await bon.bet(260000, "", {from : user1 , value : betValue})
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogBet");
         assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
@@ -96,7 +96,7 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "", {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         const trn = await bon.__updateEthPrice(250000)  //   and set to 250$/h
@@ -112,7 +112,7 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
@@ -146,8 +146,8 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
-        await bon.bet(245000, {from : user2 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
+        await bon.bet(245000, "",{from : user2 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
@@ -165,7 +165,7 @@ contract("Basic unit tests", (accounts) => {
         let betValue1 = await bon.getBetInEths()
         let roundNo1 = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue1})
+        await bon.bet(260000, "",{from : user1 , value : betValue1})
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
         await bon.forceResolveRound(roundNo1)
@@ -176,7 +176,7 @@ contract("Basic unit tests", (accounts) => {
 
         let betValue2 = await bon.getBetInEths()
         let roundNo2 = await bon.getCurrentRound()
-        await bon.bet(270000, {from : user1 , value : betValue2})
+        await bon.bet(270000, "",{from : user1 , value : betValue2})
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(270000)  //   and set to 270$/h
         await bon.forceResolveRound(roundNo2)
@@ -204,7 +204,7 @@ contract("Basic unit tests", (accounts) => {
 
         assert.equal((await bon.getRoundStatus(roundNo)).toNumber(), OPEN);
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
 
         assert.isTrue((await bon.remainingRoundTime()).toNumber() > 0)      
         await timeTravel(betCycleLength+1); // Wait next round
@@ -236,16 +236,16 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo1 = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
-        await bon.bet(245000, {from : user2 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
+        await bon.bet(245000, "",{from : user2 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
 
         const roundNo2 = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
-        const trn = await bon.bet(245000, {from : user2 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
+        const trn = await bon.bet(245000, "", {from : user2 , value : betValue})
         assert.equal(trn.logs.length, 2);
         assert.equal(trn.logs[ 1 ].event, "LogWinner");
         assert.equal(trn.logs[ 1 ].args.round.toNumber(), roundNo1);
@@ -256,7 +256,7 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength-60); 
         await bon.__updateEthPrice(250000)  // and set to 250$/h
@@ -269,9 +269,9 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "",{from : user1 , value : betValue})
         try {
-            await bon.bet(260000, {from : user2 , value : betValue})   
+            await bon.bet(260000, "",{from : user2 , value : betValue})   
         } catch (error) {
             return assertJump(error);
         }
@@ -285,7 +285,7 @@ contract("Basic unit tests", (accounts) => {
         const roundNo = await bon.getCurrentRound()
 
         try {
-            await bon.bet(260000, {from : user1 , value : betValue.minus(1)})
+            await bon.bet(260000, "",{from : user1 , value : betValue.minus(1)})
         } catch (error) {
             return assertJump(error);
         }
@@ -300,7 +300,7 @@ contract("Basic unit tests", (accounts) => {
 
         const balance = web3.eth.getBalance(user1);
 
-        const trn = await bon.bet(260000, {from : user1 , value : betValue.plus(1)})
+        const trn = await bon.bet(260000,"", {from : user1 , value : betValue.plus(1)})
         const tx = web3.eth.getTransaction(trn.tx);
         const txPrice = web3.toBigNumber(trn.receipt.gasUsed).mul(tx.gasPrice);
 
@@ -314,7 +314,7 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
+        await bon.bet(260000, "", {from : user1 , value : betValue})
         let trn = await bon.refundBadRound(roundNo, {from : user1 })
         assert.equal(trn.logs.length, 0);
 
@@ -336,9 +336,9 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.getBetInEths()
         const roundNo = await bon.getCurrentRound()
 
-        await bon.bet(260000, {from : user1 , value : betValue})
-        await bon.bet(260001, {from : user1 , value : betValue})
-        await bon.bet(260002, {from : user2 , value : betValue})
+        await bon.bet(260000, "", {from : user1 , value : betValue})
+        await bon.bet(260001, "", {from : user1 , value : betValue})
+        await bon.bet(260002, "", {from : user2 , value : betValue})
 
         let trn = await bon.refundBadRound(roundNo, {from : user1 })
         assert.equal(trn.logs.length, 0);
