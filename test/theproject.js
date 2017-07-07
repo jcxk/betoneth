@@ -21,6 +21,7 @@ contract("Basic unit tests", (accounts) => {
     const TARGETLOST = 3  // Oracle cannot set the price [end]
     const RESOLVED   = 4  // Bet calculated & paid [end]
 
+    const betCycleOffset     = 0;
     const betCycleLength     = 3600;
     const betMinRevealLength = 3600;
     const betMaxRevealLength = 7200;
@@ -40,6 +41,7 @@ contract("Basic unit tests", (accounts) => {
 
         thepro = await TheProjectMock.new(
             betCycleLength,
+            betCycleOffset,
             betMinRevealLength,
             betMaxRevealLength,
             betAmountInDollars
@@ -58,6 +60,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("check construction parameters", async () => {
         assert.equal((await thepro.betCycleLength()).toNumber(), betCycleLength);
+        assert.equal((await thepro.betCycleOffset()).toNumber(), betCycleOffset);
         assert.equal((await thepro.betMinRevealLength()).toNumber(), betMinRevealLength);
         assert.equal((await thepro.betMaxRevealLength()).toNumber(), betMaxRevealLength);
         assert.equal((await thepro.betAmountInDollars()).toNumber(), betAmountInDollars);
@@ -287,4 +290,3 @@ contract("Basic unit tests", (accounts) => {
     });
 
 });
-

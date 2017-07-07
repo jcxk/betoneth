@@ -53,7 +53,8 @@ contract TheProjectBase {
 
     // inmutable construction parameters ----------------------
 
-    uint public betCycleLength;     // how long the bet cicle lasts. eg 1 day
+    uint public betCycleLength;      // how long the bet cicle lasts. eg 1 day
+    uint public betCycleOffset;      // the offset of the betting cicle
     uint public betMinRevealLength;  // minimum time for revealig target
     uint public betMaxRevealLength;  // maxmimum time for revealig target
     uint public betAmountInDollars;
@@ -70,11 +71,13 @@ contract TheProjectBase {
 
     function TheProjectBase(
         uint _betCycleLength,
+        uint _betCycleOffset,
         uint _betMinRevealLength,
         uint _betMaxRevealLength,
         uint _betAmountInDollars
         ) {
 
+      betCycleOffset = _betCycleOffset;
       betCycleLength = _betCycleLength;
       betMinRevealLength = _betMinRevealLength;
       betMaxRevealLength = _betMaxRevealLength;
@@ -127,8 +130,11 @@ contract TheProjectBase {
             // invariant : status == CLOSED
             // if round CLOSED and in reveal dates, set price
 
-            bool startOk = now >= rounds[lastRevealedRound].closeDate.add(betMinRevealLength);
-            bool endOk = now < rounds[lastRevealedRound].closeDate.add(betMaxRevealLength);
+            bool startOk =
+                now >= rounds[lastRevealedRound].closeDate.add(betMinRevealLength);
+            
+            bool endOk =
+                now < rounds[lastRevealedRound].closeDate.add(betMaxRevealLength);
 
             if (startOk && endOk) {
                 
@@ -154,7 +160,7 @@ contract TheProjectBase {
 
     function createRoundIfRequiered() {
 
-       uint startDate = now - (now % betCycleLength);
+       uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
        uint closeDate = startDate.add(betCycleLength);
 
        uint lastCloseDate;
@@ -321,11 +327,10 @@ contract TheProjectBase {
         uint lastCheckedBetNo,
         uint closestBetNo
     ) {
-
         if (_roundNo == rounds.length) {
 
-            uint startDate = (now - (now % betCycleLength) );
-            closeDate = startDate.add(betCycleLength) - 1;
+            uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
+            closeDate = startDate.add(betCycleLength);
             betAmount = getBetInEths();
             betCount = 0;
             target = 0;

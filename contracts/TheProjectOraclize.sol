@@ -7,12 +7,14 @@ contract TheProjectOraclize is TheProjectBase, usingOraclize {
 
    function TheProjectOraclize(
         uint _betCycleLength,
+        uint _betCycleOffset,
         uint _betMinReveaLength,
         uint _betMaxReveaLength,
         uint _betAmountInDollars
     
     ) TheProjectBase(
         _betCycleLength,
+        _betCycleOffset,
         _betMinReveaLength,
         _betMaxReveaLength,
         _betMaxReveaLength) {
