@@ -3,78 +3,86 @@ pragma solidity ^0.4.11;
 import "./SafeMath.sol";
 
 contract TheProjectBase {
-    
+
     using SafeMath for uint;
 
-    // events -------------------------------------------------
+    /// events -------------------------------------------------
 
     event Log(uint v);
     event LogError(string error);
-    event LogPrize(uint round, address winner, uint amount);
+    event LogWinner(uint round, address winner);
+    event LogWinnerPaid(uint round, address winner, uint amount, uint boat);
     event LogBet(uint round, address account, uint target, uint amount);
     event LogRefund(uint round, address account, uint amount);
     event LogTargetSet(uint round, uint target);
 
-    // types ---------------------------------------------------
+    /// types ---------------------------------------------------
 
     struct Bet {
         address account;
         uint    target;     // in ethers
     }
-    
+   
     /*
        Flow diagram for RoundStatus
       
-       OPEN -> CLOSED -> TARGETSET  -> RESOLVED
+       OPEN -> CLOSED -> TARGETSET  -> RESOLVED -> PAID
                       \> TARGETLOST
     */
-    
+   
     enum RoundStatus {
         OPEN,          // Open to bets
         CLOSED,        // Closed to bets, waiting oracle to set the price
         TARGETSET,     // Oracle set the price, calculating best bet
         TARGETLOST,    // Oracle cannot set the price [end]
-        RESOLVED       // Bet calculated & paid [end]
+        RESOLVED,      // Bet calculated
+        PAID           // Bet paid
     }
 
     struct Round {
         uint     betAmount;
         uint     closeDate;  // date this round closes
+        uint     target;     // is the goal price
+        bool     paid;       // is round has been paid
 
         Bet[]                  bets;
         mapping(uint=>Bet)     betTargets;
         mapping(address=>uint) amountPerAddress;
-        
-        uint     target;      // is the goal price
 
         uint     lastCheckedBetNo;
         uint     closestBetNo;
     }
 
-    // inmutable construction parameters ----------------------
+    /// inmutable construction parameters ----------------------
 
-    uint public betCycleLength;      // how long the bet cicle lasts. eg 1 day
-    uint public betCycleOffset;      // the offset of the betting cicle
-    uint public betMinRevealLength;  // minimum time for revealig target
-    uint public betMaxRevealLength;  // maxmimum time for revealig target
-    uint public betAmountInDollars;
+    uint    public betCycleLength;      // how long the bet cicle lasts. eg 1 day
+    uint    public betCycleOffset;      // the offset of the betting cicle
+    uint    public betMinRevealLength;  // minimum time for revealig target
+    uint    public betMaxRevealLength;  // maxmimum time for revealig target
+    uint    public betAmountInDollars;
+    uint    public platformFee;         // percentage that goes to sharePlatform
+    address public platformFeeAddress;  // address where foes the platfromFee
+    uint    public boatFee;             // boat for the bet that matches the amount
 
-    // state variables ----------------------------------------
+    /// state variables ----------------------------------------
 
     Round[] public rounds;
     uint    public lastRevealedRound;
     uint    public resolvingRound;
     uint    public milliDollarsPerEth;
-    uint    public round;
+    uint    public boat;
 
-    // code ===================================================
+    /// code ===================================================
 
     function TheProjectBase(
-        uint _betCycleLength,
-        uint _betCycleOffset,
-        uint _betMinRevealLength,
-        uint _betMaxRevealLength,
-        uint _betAmountInDollars
+        uint    _betCycleLength,
+        uint    _betCycleOffset,
+        uint    _betMinRevealLength,
+        uint    _betMaxRevealLength,
+        uint    _betAmountInDollars,
+        uint    _platformFee,
+        address _platformFeeAddress,
+        uint    _boatFee
         ) {
 
       betCycleOffset = _betCycleOffset;
@@ -82,7 +90,11 @@ contract TheProjectBase {
       betMinRevealLength = _betMinRevealLength;
       betMaxRevealLength = _betMaxRevealLength;
       betAmountInDollars = _betAmountInDollars;
+      platformFee = _platformFee;
+      platformFeeAddress = _platformFeeAddress;
+      boatFee = _boatFee;
 
+      assert(!isContract(_platformFeeAddress));
     }
 
     function getBetInEths() constant returns (uint) {
@@ -93,6 +105,9 @@ contract TheProjectBase {
     function getRoundStatus(uint _roundNo) constant returns (RoundStatus) {
         Round storage round = rounds[_roundNo];
         
+        if (round.paid) {
+            return RoundStatus.PAID;
+        }
         if (now < round.closeDate) {
             return RoundStatus.OPEN;
         }
@@ -183,7 +198,7 @@ contract TheProjectBase {
         
         if (status==RoundStatus.TARGETSET) {
             resolveRound(resolvingRound,true);
-        } else if (status==RoundStatus.RESOLVED) {
+        } else if (status==RoundStatus.RESOLVED||status==RoundStatus.PAID) {
             resolvingRound++;
         }
     }
@@ -218,23 +233,20 @@ contract TheProjectBase {
                break;
            }
         }
+
+        if (lastCheckedBetNo == round.bets.length) {
+            LogWinner(_roundNo, round.bets[closestBetNo].account);
+        }
         
         round.lastCheckedBetNo = lastCheckedBetNo;
         round.closestBetNo = closestBetNo;
 
-        if (lastCheckedBetNo == round.bets.length) {
-            
-           if (lastCheckedBetNo > 0) {
-               uint prize = round.betAmount * round.bets.length;
-               round.bets[closestBetNo].account.transfer(prize);
-               LogPrize(_roundNo, round.bets[closestBetNo].account,prize);
-           }
-           
-        }
     } 
-    
+   
     function bet(uint _target) payable {
        
+        assert(!isContract(msg.sender));
+
         createRoundIfRequiered(); 
 
         Round storage round = rounds[rounds.length-1];
@@ -260,6 +272,37 @@ contract TheProjectBase {
         LogBet(rounds.length-1,msg.sender,_target,round.betAmount);
 
         autoResolvePreviousRounds();
+    }
+
+    function refundPrize(uint _roundNo) {
+
+        assert(getRoundStatus(_roundNo)==RoundStatus.RESOLVED);
+        Round storage round  = rounds[_roundNo];
+        address winner = round.bets[round.closestBetNo].account;
+
+        assert(msg.sender == winner);
+
+        round.paid=true;
+        assert(getRoundStatus(_roundNo)==RoundStatus.PAID);
+
+        uint prize = round.betAmount * round.bets.length;
+
+        uint platformAmount = percentage(prize,platformFee);
+        uint boatAmount = percentage(prize,boatFee);
+        uint winnerAmount = prize.sub(platformAmount).sub(boatAmount);
+
+        winner.transfer(winnerAmount);
+        platformFeeAddress.transfer(platformAmount);
+        boat=boat.add(boatAmount);
+
+        if (round.bets[round.closestBetNo].target == round.target) {
+            LogWinnerPaid(_roundNo, winner, winnerAmount, boat);
+            boat = 0;
+            winner.transfer(boat);
+        } else {
+            LogWinnerPaid(_roundNo, winner, winnerAmount, 0);            
+        }
+
     }
 
     function refundBadRound(uint _roundNo) {
@@ -356,14 +399,23 @@ contract TheProjectBase {
         target = rounds[_roundNo].bets[_betNo].target;
     }
     
-    // generic helpers ------------------------------------------------
+    /// generic helpers ------------------------------------------------
 
-    function diff(uint _a, uint _b) internal returns (uint) {
+    function isContract(address addr) returns (bool) {
+      uint size;
+      assembly { size := extcodesize(addr) }
+      return size > 0;
+    }
+    function percentage(uint _amount, uint _perc) constant returns (uint) {
+        return _amount.mul(10**16).mul(_perc).div(10**18);
+    }
+
+    function diff(uint _a, uint _b) constant returns (uint) {
        if (_a > _b) {
            return _a.sub(_b);
        } else {
            return _b.sub(_a);
        }
     }
-
+    
 }

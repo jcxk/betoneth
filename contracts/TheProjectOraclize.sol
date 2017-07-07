@@ -6,18 +6,26 @@ import "./OraclizeAPI04.sol";
 contract TheProjectOraclize is TheProjectBase, usingOraclize {
 
    function TheProjectOraclize(
-        uint _betCycleLength,
-        uint _betCycleOffset,
-        uint _betMinReveaLength,
-        uint _betMaxReveaLength,
-        uint _betAmountInDollars
-    
+
+        uint    _betCycleLength,
+        uint    _betCycleOffset,
+        uint    _betMinReveaLength,
+        uint    _betMaxReveaLength,
+        uint    _betAmountInDollars,
+        uint    _platformFee,
+        address _platformFeeAddress,
+        uint    _boatFee
+
     ) TheProjectBase(
         _betCycleLength,
         _betCycleOffset,
         _betMinReveaLength,
         _betMaxReveaLength,
-        _betMaxReveaLength) {
+        _betAmountInDollars,
+        _platformFee,
+        _platformFeeAddress,
+        _boatFee
+    ) {
     
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
         queryOraclarize();
@@ -53,5 +61,4 @@ contract TheProjectOraclize is TheProjectBase, usingOraclize {
             }
         }
     }    
-    
 }

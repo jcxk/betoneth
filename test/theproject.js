@@ -13,19 +13,15 @@ const TheProjectMock = artifacts.require("../contracts/TheProjectMock.sol");
 contract("Basic unit tests", (accounts) => {
 
     const BN = (n =>  web3.toBigNumber(n))
+    const percent = ( (v, p) => Math.floor(v * (p/100)) )
     const DAY = BN("86400");
 
     const OPEN       = 0  // Open to bets
     const CLOSED     = 1  // Closed to bets, waiting oracle to set the price
     const TARGETSET  = 2  // Oracle set the price, calculating best bet
     const TARGETLOST = 3  // Oracle cannot set the price [end]
-    const RESOLVED   = 4  // Bet calculated & paid [end]
-
-    const betCycleOffset     = 0;
-    const betCycleLength     = 3600;
-    const betMinRevealLength = 3600;
-    const betMaxRevealLength = 7200;
-    const betAmountInDollars = 10000;
+    const RESOLVED   = 4  // Bet calculated 
+    const PAID       = 5  // Prize paid [end]
 
     const {
         0: owner,
@@ -33,7 +29,16 @@ contract("Basic unit tests", (accounts) => {
         2: user2,
         3: user3,
         4: user4,
+        8: platformFeeAddress
     } = accounts;
+
+    const betCycleOffset     = 0;
+    const betCycleLength     = 3600;
+    const betMinRevealLength = 3600;
+    const betMaxRevealLength = 7200;
+    const betAmountInDollars = 10000;
+    const platformFee        = 10;
+    const boatFee            = 20;
 
     let thepro;
 
@@ -44,7 +49,9 @@ contract("Basic unit tests", (accounts) => {
             betCycleOffset,
             betMinRevealLength,
             betMaxRevealLength,
-            betAmountInDollars
+            betAmountInDollars,
+            platformFee, platformFeeAddress,
+            boatFee
         )
 
         // go forward to the beginning of the cycle
@@ -64,7 +71,10 @@ contract("Basic unit tests", (accounts) => {
         assert.equal((await thepro.betMinRevealLength()).toNumber(), betMinRevealLength);
         assert.equal((await thepro.betMaxRevealLength()).toNumber(), betMaxRevealLength);
         assert.equal((await thepro.betAmountInDollars()).toNumber(), betAmountInDollars);
-    });
+        assert.equal((await thepro.platformFee()).toNumber(), platformFee);
+        assert.equal((await thepro.platformFeeAddress()), platformFeeAddress);
+        assert.equal((await thepro.boatFee()), boatFee);
+     });
 
     it("a bet is logged", async () => {
 
@@ -82,6 +92,7 @@ contract("Basic unit tests", (accounts) => {
     });
 
     it("target reveal is logged", async () => {
+
         const betValue = await thepro.getBetInEths()
         const roundNo = await thepro.getCurrentRound()
 
@@ -93,9 +104,11 @@ contract("Basic unit tests", (accounts) => {
         assert.equal(trn.logs[ 0 ].event, "LogTargetSet");
         assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
         assert.equal(trn.logs[ 0 ].args.target.toNumber(), 250000);
+
     });
 
-    it("one bet, one win, forcing resolve", async () => {
+    it("one bet, one win, forcing resolve logs generated", async () => {
+
         const betValue = await thepro.getBetInEths()
         const roundNo = await thepro.getCurrentRound()
 
@@ -104,15 +117,32 @@ contract("Basic unit tests", (accounts) => {
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
-        const trn = await thepro.forceResolveRound(roundNo)
+        let trn = await thepro.forceResolveRound(roundNo)
         assert.equal(trn.logs.length, 1);
-        assert.equal(trn.logs[ 0 ].event, "LogPrize");
+        assert.equal(trn.logs[ 0 ].event, "LogWinner");
         assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
         assert.equal(trn.logs[ 0 ].args.winner, user1);
-        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.toNumber());
+
+        const fees = percent(betValue.toNumber(),platformFee+boatFee)
+        const prize = betValue.toNumber() - fees
+
+        const balance = web3.eth.getBalance(user1);
+        trn = await thepro.refundPrize(roundNo, { from: user1 } )
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogWinnerPaid");
+        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
+        assert.equal(trn.logs[ 0 ].args.winner, user1);
+        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), prize);
+        assert.equal(trn.logs[ 0 ].args.boat.toNumber(), 0);
+
+        const tx = web3.eth.getTransaction(trn.tx);
+        const txPrice = web3.toBigNumber(trn.receipt.gasUsed).mul(tx.gasPrice);
+        const expectedBalance = balance.minus(txPrice).plus(prize)
+        assert.equal(web3.eth.getBalance(user1).toNumber(), expectedBalance.toNumber());
     });
 
     it("two bets, one win, forcing resolve", async () => {
+
         const betValue = await thepro.getBetInEths()
         const roundNo = await thepro.getCurrentRound()
 
@@ -124,12 +154,48 @@ contract("Basic unit tests", (accounts) => {
 
         const trn = await thepro.forceResolveRound(roundNo)
         assert.equal(trn.logs.length, 1);
-        assert.equal(trn.logs[ 0 ].event, "LogPrize");
+        assert.equal(trn.logs[ 0 ].event, "LogWinner");
         assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
         assert.equal(trn.logs[ 0 ].args.winner, user2);
-        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.mul(2).toNumber());
-    });
 
+    });
+    
+    it("get boat on exact bet matching", async () => {
+
+        let betValue1 = await thepro.getBetInEths()
+        let roundNo1 = await thepro.getCurrentRound()
+
+        await thepro.bet(260000, {from : user1 , value : betValue1})
+        await timeTravel(betCycleLength+betMinRevealLength+1);
+        await thepro.__updateEthPrice(250000)  //   and set to 250$/h
+        await thepro.forceResolveRound(roundNo1)
+        await thepro.refundPrize(roundNo1, { from: user1 } )
+
+        let boat = percent(betValue1.toNumber(),boatFee)
+        assert.equal((await thepro.boat()).toNumber(),boat);
+
+        let betValue2 = await thepro.getBetInEths()
+        let roundNo2 = await thepro.getCurrentRound()
+        await thepro.bet(270000, {from : user1 , value : betValue2})
+        await timeTravel(betCycleLength+betMinRevealLength+1);
+        await thepro.__updateEthPrice(270000)  //   and set to 270$/h
+        await thepro.forceResolveRound(roundNo2)
+        
+        const fees = percent(betValue2.toNumber(),platformFee+boatFee)
+        const prize = betValue2.toNumber() - fees
+
+        boat = boat + percent(betValue2.toNumber(),boatFee)
+        
+        const trn = await thepro.refundPrize(roundNo2, { from: user1 } )
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogWinnerPaid");
+        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo2);
+        assert.equal(trn.logs[ 0 ].args.winner, user1);
+        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), prize);
+        assert.equal(trn.logs[ 0 ].args.boat.toNumber(), boat);
+
+        assert.equal((await thepro.boat()).toNumber(),0);
+    });
 
     it("check getRoundStatus results", async () => {
 
@@ -153,16 +219,17 @@ contract("Basic unit tests", (accounts) => {
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), TARGETSET);
-        const trn = await thepro.forceResolveRound(roundNo)
-        assert.equal(trn.logs.length, 1);
-        assert.equal(trn.logs[ 0 ].event, "LogPrize");
-        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
-        assert.equal(trn.logs[ 0 ].args.winner, user1);
-        assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.toNumber());
-
+        await thepro.forceResolveRound(roundNo)
+ 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), RESOLVED);
-    
+
+        trn = await thepro.refundPrize(roundNo, { from: user1 } )
+
+        assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), PAID);
+
     });
+
+
 
     it("two bets in two rounds should autoresolve", async () => {
         
@@ -180,10 +247,9 @@ contract("Basic unit tests", (accounts) => {
         await thepro.bet(260000, {from : user1 , value : betValue})
         const trn = await thepro.bet(245000, {from : user2 , value : betValue})
         assert.equal(trn.logs.length, 2);
-        assert.equal(trn.logs[ 1 ].event, "LogPrize");
+        assert.equal(trn.logs[ 1 ].event, "LogWinner");
         assert.equal(trn.logs[ 1 ].args.round.toNumber(), roundNo1);
         assert.equal(trn.logs[ 1 ].args.winner, user2);
-        assert.equal(trn.logs[ 1 ].args.amount.toNumber(), betValue.mul(2).toNumber());
     });
 
     it("updateprice before resolution date does not work", async () => {
