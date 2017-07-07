@@ -5,7 +5,18 @@ import "./OraclizeAPI04.sol";
 
 contract TheProjectOraclize is TheProjectBase, usingOraclize {
 
-    function TheProjectOraclize() {
+   function TheProjectOraclize(
+        uint _betCycleLength,
+        uint _betMinReveaLength,
+        uint _betMaxReveaLength,
+        uint _betAmountInDollars
+    
+    ) TheProjectBase(
+        _betCycleLength,
+        _betMinReveaLength,
+        _betMaxReveaLength,
+        _betMaxReveaLength) {
+    
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
         queryOraclarize();
     }

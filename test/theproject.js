@@ -10,16 +10,21 @@ const timeTravel = require("./helpers/timeTravel.js");
 
 const TheProjectMock = artifacts.require("../contracts/TheProjectMock.sol");
 
-contract("first test", (accounts) => {
+contract("Basic unit tests", (accounts) => {
 
-    const WEI = web3.toBigNumber("1");
-    const FIFTY_WEI = web3.toBigNumber("50");
+    const BN = (n =>  web3.toBigNumber(n))
+    const DAY = BN("86400");
 
     const OPEN       = 0  // Open to bets
     const CLOSED     = 1  // Closed to bets, waiting oracle to set the price
     const TARGETSET  = 2  // Oracle set the price, calculating best bet
     const TARGETLOST = 3  // Oracle cannot set the price [end]
     const RESOLVED   = 4  // Bet calculated & paid [end]
+
+    const betCycleLength     = 3600;
+    const betMinRevealLength = 3600;
+    const betMaxRevealLength = 7200;
+    const betAmountInDollars = 10000;
 
     const {
         0: owner,
@@ -32,9 +37,30 @@ contract("first test", (accounts) => {
     let thepro;
 
     beforeEach(async () => {
-        thepro = await TheProjectMock.new()
+
+        thepro = await TheProjectMock.new(
+            betCycleLength,
+            betMinRevealLength,
+            betMaxRevealLength,
+            betAmountInDollars
+        )
+
+        // go forward to the beginning of the cycle
+        //   we need that to prevent weird unit test errors
+        //   if round changes just in the middle of the test
+        const ts =  (await thepro.getNow()).toNumber()
+        await timeTravel(betCycleLength - (ts % betCycleLength));
+
         await thepro.__updateEthPrice(200000)   // 200$/eth
         await thepro.createRoundIfRequiered()
+
+    });
+
+    it("check construction parameters", async () => {
+        assert.equal((await thepro.betCycleLength()).toNumber(), betCycleLength);
+        assert.equal((await thepro.betMinRevealLength()).toNumber(), betMinRevealLength);
+        assert.equal((await thepro.betMaxRevealLength()).toNumber(), betMaxRevealLength);
+        assert.equal((await thepro.betAmountInDollars()).toNumber(), betAmountInDollars);
     });
 
     it("a bet is logged", async () => {
@@ -52,13 +78,27 @@ contract("first test", (accounts) => {
     
     });
 
+    it("target reveal is logged", async () => {
+        const betValue = await thepro.getBetInEths()
+        const roundNo = await thepro.getCurrentRound()
+
+        await thepro.bet(260000, {from : user1 , value : betValue})
+
+        await timeTravel(betCycleLength+betMinRevealLength+1);
+        const trn = await thepro.__updateEthPrice(250000)  //   and set to 250$/h
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogTargetSet");
+        assert.equal(trn.logs[ 0 ].args.round.toNumber(), roundNo);
+        assert.equal(trn.logs[ 0 ].args.target.toNumber(), 250000);
+    });
+
     it("one bet, one win, forcing resolve", async () => {
         const betValue = await thepro.getBetInEths()
         const roundNo = await thepro.getCurrentRound()
 
         await thepro.bet(260000, {from : user1 , value : betValue})
 
-        await timeTravel((86400*15)+1); // Wait 1 day
+        await timeTravel(betCycleLength+betMinRevealLength+1);
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
         const trn = await thepro.forceResolveRound(roundNo)
@@ -76,7 +116,7 @@ contract("first test", (accounts) => {
         await thepro.bet(260000, {from : user1 , value : betValue})
         await thepro.bet(245000, {from : user2 , value : betValue})
 
-        await timeTravel((86400*15)+1); // Wait 1 day
+        await timeTravel(betCycleLength+betMinRevealLength+1);
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
         const trn = await thepro.forceResolveRound(roundNo)
@@ -86,6 +126,7 @@ contract("first test", (accounts) => {
         assert.equal(trn.logs[ 0 ].args.winner, user2);
         assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.mul(2).toNumber());
     });
+
 
     it("check getRoundStatus results", async () => {
 
@@ -97,13 +138,13 @@ contract("first test", (accounts) => {
         await thepro.bet(260000, {from : user1 , value : betValue})
 
         assert.isTrue((await thepro.remainingRoundTime()).toNumber() > 0)      
-        await timeTravel((86400)+1); // Wait 1 day
+        await timeTravel(betCycleLength+1); // Wait next round
         assert.isTrue((await thepro.remainingRoundTime()).toNumber() == 0)  
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), CLOSED);
 
         assert.isTrue((await thepro.remainingRevealTime(roundNo)).toNumber() > 0)
-        await timeTravel(86400*14); // Wait 14 days
+        await timeTravel(betMinRevealLength);
         assert.isTrue((await thepro.remainingRevealTime(roundNo)).toNumber() == 0)
 
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
@@ -128,7 +169,7 @@ contract("first test", (accounts) => {
         await thepro.bet(260000, {from : user1 , value : betValue})
         await thepro.bet(245000, {from : user2 , value : betValue})
 
-        await timeTravel(86400*15+1); // Wait 15 days
+        await timeTravel(betCycleLength+betMinRevealLength+1);
         await thepro.__updateEthPrice(250000)  //   and set to 250$/h
 
         const roundNo2 = await thepro.getCurrentRound()
@@ -148,7 +189,7 @@ contract("first test", (accounts) => {
 
         await thepro.bet(260000, {from : user1 , value : betValue})
 
-        await timeTravel((86400*14)+1);        // Wait 14 days
+        await timeTravel(betCycleLength+betMinRevealLength-60); 
         await thepro.__updateEthPrice(250000)  // and set to 250$/h
 
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), CLOSED);
@@ -208,7 +249,7 @@ contract("first test", (accounts) => {
         let trn = await thepro.refundBadRound(roundNo, {from : user1 })
         assert.equal(trn.logs.length, 0);
 
-        await timeTravel((86400*15)+1); // Wait 15 days
+        await timeTravel(betCycleLength+betMinRevealLength);
 
         trn = await thepro.refundBadRound(roundNo, {from : user1 })
         assert.equal(trn.logs.length, 0);
@@ -233,7 +274,7 @@ contract("first test", (accounts) => {
         let trn = await thepro.refundBadRound(roundNo, {from : user1 })
         assert.equal(trn.logs.length, 0);
 
-        await timeTravel((86400*16)+1); // Wait 16 days
+        await timeTravel(betCycleLength+betMaxRevealLength+1);
         assert.equal((await thepro.getRoundStatus(roundNo)).toNumber(), TARGETLOST);
 
         trn = await thepro.refundBadRound(roundNo, {from : user1 })
@@ -244,7 +285,6 @@ contract("first test", (accounts) => {
         assert.equal(trn.logs[ 0 ].args.amount.toNumber(), betValue.mul(2).toNumber());
 
     });
-
 
 });
 
