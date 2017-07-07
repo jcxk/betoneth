@@ -21,7 +21,7 @@ module.exports = seconds =>
           (err2) => {
               if (err2) return reject(err2);
               resolve();
-          },
+          }
         );
       },
     );
