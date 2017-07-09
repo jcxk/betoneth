@@ -17,7 +17,7 @@ const TARGETWAIT = 3  // Waiting set the price
 const TARGETSET  = 4  // Oracle set the price, calculating best bet
 const TARGETLOST = 5  // Oracle cannot set the price [end]
 const RESOLVED   = 6  // Bet calculated 
-const PAID       = 7  // Prize paid [end]
+const FINISHED   = 7  // Prize paid [end]
 
 var accounts;
 var account;
@@ -196,7 +196,7 @@ window.App = {
         "TARGETSET ",
         "TARGETLOST",
         "RESOLVED  ",
-        "PAID      "
+        "FINISHED      "
       ]
 
       let [
@@ -221,8 +221,6 @@ window.App = {
       info += " "+statuses[status];
       info += " "+betCount+" bets ";
 
-      console.log("closedate",closeDate,"now",now)
-
       switch (status) {
         case FUTURE :
         case OPEN :
@@ -242,7 +240,7 @@ window.App = {
         case RESOLVED :
            info += " - target="+target+" winner is "+closestBetNo
            break;
-        case PAID :
+        case FINISHED :
            info += " - target="+target+" winner is "+closestBetNo
            break;
       }

@@ -27,7 +27,7 @@ contract BettingonBase {
     /*
        Flow diagram for RoundStatus
       
-       OPEN -> CLOSED -> TARGETWAIT -> TARGETSET  -> RESOLVED -> PAID
+       OPEN -> CLOSED -> TARGETWAIT -> TARGETSET  -> RESOLVED -> FINISHED
                                     \> TARGETLOST
     */
    
@@ -39,7 +39,7 @@ contract BettingonBase {
         TARGETSET,     // Oracle set the price, calculating best bet
         TARGETLOST,    // Oracle cannot set the price [end]
         RESOLVED,      // Bet calculated
-        PAID           // Bet paid
+        FINISHED       // Bet paid
     }
 
     struct Round {
@@ -133,13 +133,13 @@ contract BettingonBase {
             return RoundStatus.OPEN;
         }
 
+        if (round.balance == 0) {
+            return RoundStatus.FINISHED;            
+        }
+
         if (round.lastCheckedBetNo == round.bets.length) {
             assert(round.target > 0);
             return RoundStatus.RESOLVED;            
-        }
-
-        if (round.balance == 0) {
-            return RoundStatus.PAID;            
         }
 
         if (round.target > 0) {
@@ -357,7 +357,7 @@ contract BettingonBase {
             LogWinnerPaid(_roundNo, winner, winnerAmount, 0);            
         }
 
-        round.balance = 0;      
+        round.balance = 0;   
 
     }
 

@@ -22,7 +22,7 @@ contract("Basic unit tests", (accounts) => {
     const TARGETSET  = 4  // Oracle set the price, calculating best bet
     const TARGETLOST = 5  // Oracle cannot set the price [end]
     const RESOLVED   = 6  // Bet calculated 
-    const PAID       = 7  // Prize paid [end]
+    const FINISHED   = 7  // Prize paid [end]
 
     const {
         0: owner,
@@ -221,7 +221,7 @@ contract("Basic unit tests", (accounts) => {
 
         await bon.refund(roundNo, { from: user1 } )
 
-        assert.equal((await bon.getRoundStatus(roundNo,VMTIME)).toNumber(), PAID);
+        assert.equal((await bon.getRoundStatus(roundNo,VMTIME)).toNumber(), FINISHED);
 
     });
 
