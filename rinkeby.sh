@@ -1,1 +1,1 @@
-truffle migrate --network rinkeby
+rm -rf build && truffle migrate --network rinkeby && npm run dev
