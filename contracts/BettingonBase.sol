@@ -173,7 +173,7 @@ contract BettingonBase {
                 break;
             } 
 
-            rounds.length++;
+            lastRevealedRound++;
 
         }
         
@@ -185,7 +185,7 @@ contract BettingonBase {
 
     function createRoundIfRequiered() {
 
-       uint closeDate = thisRoundCloseDate();
+       uint closeDate = thisRoundCloseDate(now);
        uint lastCloseDate;
 
        if (rounds.length > 0) {
@@ -205,9 +205,9 @@ contract BettingonBase {
 
         RoundStatus status = getRoundStatus(resolvingRound,now);
         
-        if (status==RoundStatus.TARGETSET) {
+        if (status == RoundStatus.TARGETSET) {
             resolveRound(resolvingRound,true);
-        } else if (status > RoundStatus.OPEN) {
+        } else if (status > RoundStatus.TARGETSET) {
             resolvingRound++;
         }
 
@@ -308,6 +308,7 @@ contract BettingonBase {
             LogRefund(_roundNo, round.bets[0].account,round.balance);
             round.amountPerAddress[round.bets[0].account] = 0;
             round.balance = 0;
+            round.paid=true;
             return;
         }
 
@@ -318,6 +319,9 @@ contract BettingonBase {
             uint amount = round.amountPerAddress[msg.sender];
             if (amount > 0) {
                 round.balance = round.balance.sub(amount);
+                if (round.balance == 0) {
+                   round.paid=true;
+                }
                 round.amountPerAddress[msg.sender] = 0;
                 msg.sender.transfer(amount);
                 LogRefund(_roundNo,msg.sender,amount);
@@ -403,7 +407,7 @@ contract BettingonBase {
 
         if (_roundNo == rounds.length) {
 
-            uint startDate = thisRoundCloseDate();
+            closeDate = thisRoundCloseDate(_now);
             betAmount = getBetInEths();
             betCount = 0;
             target = 0;
@@ -431,8 +435,8 @@ contract BettingonBase {
         comment = rounds[_roundNo].bets[_betNo].comment;
     }
     
-    function thisRoundCloseDate() internal returns (uint) {
-       uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
+    function thisRoundCloseDate(uint _now) internal returns (uint) {
+       uint startDate = _now.sub(_now % betCycleLength).add(betCycleOffset);
        return startDate.add(betCycleLength);
     }
 

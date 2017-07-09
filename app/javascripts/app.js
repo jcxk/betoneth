@@ -8,12 +8,17 @@ import { default as contract } from 'truffle-contract'
 // Import our contract artifacts and turn them into usable abstractions.
 import bettingon_artifacts from '../../build/contracts/BettingonMock.json'
 
-// MetaCoin is our usable abstraction, which we'll use through the code below.
 var BettingonMock = contract(bettingon_artifacts);
 
-// The following code is simple to show off interacting with your contracts.
-// As your needs grow you will likely need to change its form and structure.
-// For application bootstrapping, check out window.addEventListener below.
+const FUTURE     = 0  // Not exists yet
+const OPEN       = 1  // Open to bets
+const CLOSED     = 2  // Closed to bets, waiting oracle to set the price
+const TARGETWAIT = 3  // Waiting set the price
+const TARGETSET  = 4  // Oracle set the price, calculating best bet
+const TARGETLOST = 5  // Oracle cannot set the price [end]
+const RESOLVED   = 6  // Bet calculated 
+const PAID       = 7  // Prize paid [end]
+
 var accounts;
 var account;
 var bon;
@@ -47,7 +52,6 @@ window.App = {
 
       accounts = accs;
       account = accounts[0];
-
 
       BettingonMock.deployed()
       .then(function(_bon) {
@@ -83,14 +87,14 @@ window.App = {
         let paramInfo = "";
 
         paramInfo+="betCycleLength="+betCycleLength;
-        paramInfo+="\nbetCycleOffset="+betCycleOffset;
+        paramInfo+=", betCycleOffset="+betCycleOffset;
         paramInfo+="\nbetMinRevealLength="+betMinRevealLength;
-        paramInfo+="\nbetMaxRevealLength="+betMaxRevealLength;
+        paramInfo+=", betMaxRevealLength="+betMaxRevealLength;
         paramInfo+="\nbetAmountInDollars="+betAmountInDollars;
         paramInfo+="\nplatformFee="+platformFee;
-        paramInfo+="\nboatFee="+boatFee;
+        paramInfo+=", boatFee="+boatFee;
         paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
-        paramInfo+="\nresolvingRound="+_values[8].toNumber();
+        paramInfo+=", resolvingRound="+_values[8].toNumber();
         paramInfo+="\nmilliDollarsPerEth="+_values[9].toNumber();
         paramInfo+="\nboat="+_values[10].toNumber();
         paramInfo+="\nnowhost, nowevm:"+now+","+_values[11].toNumber();
@@ -139,7 +143,7 @@ window.App = {
 
   setStatus: function(message,working) {
     var status = document.getElementById("status");
-    if (working) message+=" ***WORKING*** "
+    if (working) message+="<img src='http://keegansirishpub.net/wp-content/themes/octane-bootstrap/images/loader.gif'>"
     status.innerHTML = message;
   },
 
@@ -156,14 +160,14 @@ window.App = {
      return pad(d)+"d"+pad(h)+"h"+pad(m)+"m"+pad(s)+"s"
   },
 
-  roundFullInfo : function (roundNo) {
+  roundFullInfo : function (roundNo,now) {
     var self = this;
 
     let info;
 
-    return bon.getRoundAt(roundNo)
+    return bon.getRoundAt(roundNo, web3.toBigNumber(now))
     .then(function(_values) {
-      info = self.roundInfoFromValues(roundNo,_values);
+      info = self.roundInfoFromValues(roundNo,_values,now);
       let bets = []
       for (let betNo = 0; betNo < _values[3].toNumber(); betNo++) { 
         bets.push(bon.getBetAt(roundNo,betNo));
@@ -171,9 +175,9 @@ window.App = {
       return Promise.all(bets)
     }).then(function(_bets) {
       for (let betNo = 0; betNo < _bets.length; betNo++) { 
-        info += "\n>" + _bets[betNo][0] +" "+_bets[betNo][1].toNumber()
+        info += "\n >" + _bets[betNo][0] +" "+_bets[betNo][1].toNumber()
       } 
-      info+="\n"
+      info+="\n\n"
       return new Promise(function (resolve, reject) {
         resolve(info);
       });
@@ -181,19 +185,18 @@ window.App = {
 
   },
 
-  roundInfoFromValues : function(roundNo, values) {
+  roundInfoFromValues : function(roundNo, values, now) {
       var self = this;
 
-      let now = Math.floor(Date.now() / 1000);
-
-      console.log("values",values)
       const statuses = [
-        "OPEN     ",
-        "CLOSED   ",
-        "TARGETSET",
+        "FUTURE    ",
+        "OPEN      ",
+        "CLOSED    ",
+        "TARGETWAIT",
+        "TARGETSET ",
         "TARGETLOST",
-        "RESOLVED ",
-        "PAID     "
+        "RESOLVED  ",
+        "PAID      "
       ]
 
       let [
@@ -218,36 +221,47 @@ window.App = {
       info += " "+statuses[status];
       info += " "+betCount+" bets ";
 
-      if (status==0) {
-        info += " info: "+self.timediff2str(closeDate-now)+" to close."
-      } else 
-      if (status==1) {
-        if (closeDate+betMinRevealLength > now) {
-           info += " info:"+self.timediff2str(closeDate+betMinRevealLength-now)+" to start set target."
-        } else {
-           info += " info:"+self.timediff2str(closeDate+betMaxRevealLength-now)+" to finish set target."          
-        }
-      } else 
-      if (status==2) {
-        info += " info: target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
-      }
-      if (status==4) {
-        info += "  info: target="+target+" winner is "+closestBetNo
+      console.log("closedate",closeDate,"now",now)
+
+      switch (status) {
+        case FUTURE :
+        case OPEN :
+          info += " - "+self.timediff2str(closeDate-now)+" to close."
+          break;
+        case CLOSED :
+           info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to start set target."
+           break;
+        case TARGETWAIT :
+           info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" to finish set target."
+           break;
+        case TARGETSET :
+           info += " - target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
+           break;
+        case TARGETLOST :
+           break;
+        case RESOLVED :
+           info += " - target="+target+" winner is "+closestBetNo
+           break;
+        case PAID :
+           info += " - target="+target+" winner is "+closestBetNo
+           break;
       }
       return info;    
   },
 
   refresh: function() {
     var self = this;
+    
+    const now = Math.floor(Date.now() / 1000);
 
     var roundNo;
     
-    return bon.getRoundCount()
+    return bon.getRoundCount(web3.toBigNumber(now))
     .then(function(_roundCount) {
       let roundCount = _roundCount.toNumber();
       let promises = []
-      for (let roundNo = 0; roundNo < roundCount; roundNo++) { 
-        promises.push(self.roundFullInfo(roundNo));
+      for (let roundNo = roundCount - 1; roundNo >=0 ; roundNo--) { 
+        promises.push(self.roundFullInfo(roundNo,now));
       } 
       return Promise.all(promises)
     })
@@ -290,9 +304,11 @@ window.App = {
 
     var self = this;
 
-    bon.getRoundCount()
+    const now = Math.floor(Date.now() / 1000);
+
+    bon.getCurrentRound(web3.toBigNumber(now))
     .then(function(_roundNo) {
-      return bon.getRoundAt(_roundNo)
+      return bon.getRoundAt(_roundNo,web3.toBigNumber(now))
     })
     .then(function(_values) {
       let betValue = _values[2].toNumber();
@@ -307,7 +323,7 @@ window.App = {
 
   },
 
-  uiResolve : function() {
+  uiSetPrice : function() {
 
     var self = this;
 
@@ -321,26 +337,37 @@ window.App = {
 
   },
 
-  sendCoin: function() {
+  uiForceResolve : function() {
+
     var self = this;
 
-    var amount = parseInt(document.getElementById("amount").value);
-    var receiver = document.getElementById("receiver").value;
+    let roundNo = prompt("Round to force resolve:")
+    if (roundNo === null) {
+      return; 
+    }
+    self.dotransaction(
+      bon.forceResolveRound(roundNo,{from: account})
+    );
 
-    this.setStatus("Initiating transaction... (please wait)");
+  },
 
-    var meta;
-    MetaCoin.deployed().then(function(instance) {
-      meta = instance;
-      return meta.sendCoin(receiver, amount, {from: account});
-    }).then(function() {
-      self.setStatus("Transaction complete!");
-      self.refreshBalance();
-    }).catch(function(e) {
-      console.log(e);
-      self.setStatus("Error sending coin; see log.");
-    });
+  uiRefund : function() {
+
+    var self = this;
+
+    let roundNo = prompt("Round to refund:")
+    if (roundNo === null) {
+      return; 
+    }
+    self.dotransaction(
+      bon.refund(roundNo,{from: account})
+    );
+
   }
+
+
+
+
 };
 
 window.addEventListener('load', function() {
