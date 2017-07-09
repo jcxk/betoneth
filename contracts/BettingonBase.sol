@@ -96,6 +96,9 @@ contract BettingonBase {
       boatFee = _boatFee;
 
       assert(!isContract(_platformFeeAddress));
+
+      milliDollarsPerEth = 250000; // set initial fake value
+
     }
 
     function getBetInEths() constant returns (uint) {
@@ -199,7 +202,7 @@ contract BettingonBase {
         
         if (status==RoundStatus.TARGETSET) {
             resolveRound(resolvingRound,true);
-        } else if (status==RoundStatus.RESOLVED||status==RoundStatus.PAID) {
+        } else if (status!=RoundStatus.OPEN) {
             resolvingRound++;
         }
     }
@@ -245,8 +248,8 @@ contract BettingonBase {
     } 
    
     function bet(uint _target, string _comment) payable {
-       
-        assert(!isContract(msg.sender));
+
+        // assert(!isContract(msg.sender)); -- crashes testrpc evm_estimategas!
 
         createRoundIfRequiered(); 
 
@@ -274,6 +277,7 @@ contract BettingonBase {
         LogBet(rounds.length-1,msg.sender,_target,round.betAmount);
 
         autoResolvePreviousRounds();
+        
     }
 
     function refundPrize(uint _roundNo) {
@@ -365,6 +369,7 @@ contract BettingonBase {
     }
 
     function getRoundAt(uint _roundNo) constant returns (
+        RoundStatus status,
         uint closeDate,
         uint betAmount,
         uint betCount,
@@ -374,6 +379,7 @@ contract BettingonBase {
     ) {
         if (_roundNo == rounds.length) {
 
+            status = RoundStatus.OPEN;
             uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
             closeDate = startDate.add(betCycleLength);
             betAmount = getBetInEths();
@@ -385,6 +391,7 @@ contract BettingonBase {
             return;
         }
 
+        status = getRoundStatus(_roundNo);
         closeDate = rounds[_roundNo].closeDate;
         betAmount = rounds[_roundNo].betAmount;
         betCount = rounds[_roundNo].bets.length;
@@ -403,6 +410,10 @@ contract BettingonBase {
         comment = rounds[_roundNo].bets[_betNo].comment;
     }
     
+    function getNow() constant returns (uint) {
+        return now;
+    }
+
     /// generic helpers ------------------------------------------------
 
     function isContract(address addr) returns (bool) {

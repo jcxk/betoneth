@@ -223,7 +223,7 @@ contract("Basic unit tests", (accounts) => {
  
         assert.equal((await bon.getRoundStatus(roundNo)).toNumber(), RESOLVED);
 
-        trn = await bon.refundPrize(roundNo, { from: user1 } )
+        await bon.refundPrize(roundNo, { from: user1 } )
 
         assert.equal((await bon.getRoundStatus(roundNo)).toNumber(), PAID);
 

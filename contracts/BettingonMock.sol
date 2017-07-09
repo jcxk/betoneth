@@ -24,13 +24,13 @@ contract BettingonMock is BettingonBase {
         _platformFeeAddress,
         _boatFee
     ) {
+        milliDollarsPerEth = 250001; // set initial fake value
+        createRoundIfRequiered();
     }
 
     function __updateEthPrice(uint _milliDollarsPerEth) {
         updateEthPrice(_milliDollarsPerEth);
+
     }
 
-    function getNow() constant returns (uint) {
-    	return now;
-    }
 }
