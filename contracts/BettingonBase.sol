@@ -49,12 +49,10 @@ contract BettingonBase {
         uint     closeDate;  // date this round closes
 
         uint     target;     // is the goal price
-        bool     paid;       // is round has been paid
 
         Bet[]                  bets;
         mapping(uint=>Bet)     betTargets;
         mapping(address=>uint) amountPerAddress;
-
 
         uint     lastCheckedBetNo;
         uint     closestBetNo;
@@ -131,25 +129,31 @@ contract BettingonBase {
 
         Round storage round = rounds[_roundNo];
         
-        if (round.paid) {
-            return RoundStatus.PAID;
-        }
         if (_now < round.closeDate) {
             return RoundStatus.OPEN;
         }
+
         if (round.lastCheckedBetNo == round.bets.length) {
             assert(round.target > 0);
             return RoundStatus.RESOLVED;            
         }
+
+        if (round.balance == 0) {
+            return RoundStatus.PAID;            
+        }
+
         if (round.target > 0) {
             return RoundStatus.TARGETSET;            
         }
+
         if (round.target == 0  && _now > round.closeDate.add(betMaxRevealLength)) {
             return RoundStatus.TARGETLOST;
         }
+
         if (round.target == 0  && _now > round.closeDate.add(betMinRevealLength)) {
             return RoundStatus.TARGETWAIT;
         }
+
         return RoundStatus.CLOSED;
     }
 
@@ -308,7 +312,6 @@ contract BettingonBase {
             LogRefund(_roundNo, round.bets[0].account,round.balance);
             round.amountPerAddress[round.bets[0].account] = 0;
             round.balance = 0;
-            round.paid=true;
             return;
         }
 
@@ -319,9 +322,6 @@ contract BettingonBase {
             uint amount = round.amountPerAddress[msg.sender];
             if (amount > 0) {
                 round.balance = round.balance.sub(amount);
-                if (round.balance == 0) {
-                   round.paid=true;
-                }
                 round.amountPerAddress[msg.sender] = 0;
                 msg.sender.transfer(amount);
                 LogRefund(_roundNo,msg.sender,amount);
@@ -341,9 +341,6 @@ contract BettingonBase {
             return;
         }
 
-        round.paid=true;
-        assert(getRoundStatus(_roundNo,now)==RoundStatus.PAID);
-
         uint platformAmount = percentage(round.balance,platformFee);
         uint boatAmount = percentage(round.balance,boatFee);
         uint winnerAmount = round.balance.sub(platformAmount).sub(boatAmount);
@@ -354,11 +351,13 @@ contract BettingonBase {
 
         if (round.bets[round.closestBetNo].target == round.target) {
             LogWinnerPaid(_roundNo, winner, winnerAmount, boat);
-            boat = 0;
             winner.transfer(boat);
+            boat = 0;
         } else {
             LogWinnerPaid(_roundNo, winner, winnerAmount, 0);            
-        }            
+        }
+
+        round.balance = 0;      
 
     }
 
