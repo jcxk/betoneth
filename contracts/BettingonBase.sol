@@ -27,13 +27,15 @@ contract BettingonBase {
     /*
        Flow diagram for RoundStatus
       
-       OPEN -> CLOSED -> TARGETSET  -> RESOLVED -> PAID
-                      \> TARGETLOST
+       OPEN -> CLOSED -> TARGETWAIT -> TARGETSET  -> RESOLVED -> PAID
+                                    \> TARGETLOST
     */
    
     enum RoundStatus {
+        FUTURE,        // Not exists yet
         OPEN,          // Open to bets
         CLOSED,        // Closed to bets, waiting oracle to set the price
+        TARGETWAIT,    // Waiting oracle to set the price        
         TARGETSET,     // Oracle set the price, calculating best bet
         TARGETLOST,    // Oracle cannot set the price [end]
         RESOLVED,      // Bet calculated
@@ -41,14 +43,18 @@ contract BettingonBase {
     }
 
     struct Round {
-        uint     betAmount;
+
+        uint     balance;    // total money balance 
+        uint     betAmount;  // bet amount 
         uint     closeDate;  // date this round closes
+
         uint     target;     // is the goal price
         bool     paid;       // is round has been paid
 
         Bet[]                  bets;
         mapping(uint=>Bet)     betTargets;
         mapping(address=>uint) amountPerAddress;
+
 
         uint     lastCheckedBetNo;
         uint     closestBetNo;
@@ -106,23 +112,43 @@ contract BettingonBase {
         return eth.div(1000).div(milliDollarsPerEth.mul(betAmountInDollars));
     } 
 
-    function getRoundStatus(uint _roundNo) constant returns (RoundStatus) {
+    function getRoundStatus(uint _roundNo, uint _now) constant returns (RoundStatus) {
+
+        if (_now == 0) {
+            _now = now;
+        }
+
+        if (_roundNo > rounds.length) {
+            return RoundStatus.FUTURE;
+        }
+
+        if (_roundNo == rounds.length) {
+            if (rounds.length>0 && rounds[_roundNo-1].closeDate > _now) {
+                return RoundStatus.FUTURE;
+            }
+            return RoundStatus.OPEN;
+        }
+
         Round storage round = rounds[_roundNo];
         
         if (round.paid) {
             return RoundStatus.PAID;
         }
-        if (now < round.closeDate) {
+        if (_now < round.closeDate) {
             return RoundStatus.OPEN;
         }
         if (round.lastCheckedBetNo == round.bets.length) {
+            assert(round.target > 0);
             return RoundStatus.RESOLVED;            
         }
         if (round.target > 0) {
             return RoundStatus.TARGETSET;            
         }
-        if (round.target == 0  && now > round.closeDate.add(betMaxRevealLength)) {
+        if (round.target == 0  && _now > round.closeDate.add(betMaxRevealLength)) {
             return RoundStatus.TARGETLOST;
+        }
+        if (round.target == 0  && _now > round.closeDate.add(betMinRevealLength)) {
+            return RoundStatus.TARGETWAIT;
         }
         return RoundStatus.CLOSED;
     }
@@ -131,31 +157,11 @@ contract BettingonBase {
         
         milliDollarsPerEth = _milliDollarsPerEth;
 
-        while (lastRevealedRound  < rounds.length ) {
+        while (lastRevealedRound < rounds.length ) {
 
-            RoundStatus status = getRoundStatus(lastRevealedRound);
+            RoundStatus status = getRoundStatus(lastRevealedRound, now);
 
-            // if the round is open, end loop
-            if (status == RoundStatus.OPEN) {
-                break;
-            }
-
-            // if the round is not closed, skip it
-            if ( status != RoundStatus.CLOSED ) {
-                lastRevealedRound++;
-                continue;   
-            }
-
-            // invariant : status == CLOSED
-            // if round CLOSED and in reveal dates, set price
-
-            bool startOk =
-                now >= rounds[lastRevealedRound].closeDate.add(betMinRevealLength);
-            
-            bool endOk =
-                now < rounds[lastRevealedRound].closeDate.add(betMaxRevealLength);
-
-            if (startOk && endOk) {
+            if (status == RoundStatus.TARGETWAIT) {
                 
                 rounds[lastRevealedRound].target = _milliDollarsPerEth;
 
@@ -163,11 +169,11 @@ contract BettingonBase {
                 lastRevealedRound++;
                 break;
 
-            } else {
-
-                // if not, just wait
+            } else if (status <= RoundStatus.CLOSED) {
                 break;
-            }
+            } 
+
+            rounds.length++;
 
         }
         
@@ -179,10 +185,9 @@ contract BettingonBase {
 
     function createRoundIfRequiered() {
 
-       uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
-       uint closeDate = startDate.add(betCycleLength);
-
+       uint closeDate = thisRoundCloseDate();
        uint lastCloseDate;
+
        if (rounds.length > 0) {
             lastCloseDate = rounds[rounds.length-1].closeDate;
         } 
@@ -197,19 +202,20 @@ contract BettingonBase {
     }
 
     function autoResolvePreviousRounds() internal {
-        
-        RoundStatus status = getRoundStatus(resolvingRound);
+
+        RoundStatus status = getRoundStatus(resolvingRound,now);
         
         if (status==RoundStatus.TARGETSET) {
             resolveRound(resolvingRound,true);
-        } else if (status!=RoundStatus.OPEN) {
+        } else if (status > RoundStatus.OPEN) {
             resolvingRound++;
         }
+
     }
 
     function resolveRound(uint _roundNo, bool _onetime) internal {
   
-        if (getRoundStatus(_roundNo)!=RoundStatus.TARGETSET) {
+        if (getRoundStatus(_roundNo,now)!=RoundStatus.TARGETSET) {
             return;
         }
   
@@ -260,7 +266,7 @@ contract BettingonBase {
         }
 
         require(msg.value >= round.betAmount);
-        
+
         if (msg.value > round.betAmount) {
             msg.sender.transfer(msg.value.sub(round.betAmount));
         }
@@ -274,28 +280,69 @@ contract BettingonBase {
         round.amountPerAddress[msg.sender] = 
             round.amountPerAddress[msg.sender].add(round.betAmount);
 
+        round.balance = round.balance.add(round.betAmount);
+
         LogBet(rounds.length-1,msg.sender,_target,round.betAmount);
 
         autoResolvePreviousRounds();
-        
+
     }
 
-    function refundPrize(uint _roundNo) {
+    function refund(uint _roundNo) {
 
-        assert(getRoundStatus(_roundNo)==RoundStatus.RESOLVED);
-        Round storage round  = rounds[_roundNo];
+        RoundStatus status = getRoundStatus(_roundNo,now);
+        
+        if(status == RoundStatus.OPEN) {
+            return;
+        }
+
+        Round storage round = rounds[_roundNo];
+
+        // if this round is >closed, and there's only
+        //   one betting address, just refund money
+
+        if (round.balance == round.amountPerAddress[round.bets[0].account]
+            && round.bets[0].account == msg.sender) {
+
+            msg.sender.transfer(round.balance);
+            LogRefund(_roundNo, round.bets[0].account,round.balance);
+            round.amountPerAddress[round.bets[0].account] = 0;
+            round.balance = 0;
+            return;
+        }
+
+        // if this round is target lost, just refund money
+        //   one betting address, just refund money
+
+        if (status == RoundStatus.TARGETLOST) {
+            uint amount = round.amountPerAddress[msg.sender];
+            if (amount > 0) {
+                round.balance = round.balance.sub(amount);
+                round.amountPerAddress[msg.sender] = 0;
+                msg.sender.transfer(amount);
+                LogRefund(_roundNo,msg.sender,amount);
+            }
+            return;
+        }
+
+        // otherwise, check for the winner
+        //
+
+        if(getRoundStatus(_roundNo,now)!=RoundStatus.RESOLVED) {
+            return;
+        }
+
         address winner = round.bets[round.closestBetNo].account;
-
-        assert(msg.sender == winner);
+        if(msg.sender != winner){
+            return;
+        }
 
         round.paid=true;
-        assert(getRoundStatus(_roundNo)==RoundStatus.PAID);
+        assert(getRoundStatus(_roundNo,now)==RoundStatus.PAID);
 
-        uint prize = round.betAmount * round.bets.length;
-
-        uint platformAmount = percentage(prize,platformFee);
-        uint boatAmount = percentage(prize,boatFee);
-        uint winnerAmount = prize.sub(platformAmount).sub(boatAmount);
+        uint platformAmount = percentage(round.balance,platformFee);
+        uint boatAmount = percentage(round.balance,boatFee);
+        uint winnerAmount = round.balance.sub(platformAmount).sub(boatAmount);
 
         winner.transfer(winnerAmount);
         platformFeeAddress.transfer(platformAmount);
@@ -307,68 +354,42 @@ contract BettingonBase {
             winner.transfer(boat);
         } else {
             LogWinnerPaid(_roundNo, winner, winnerAmount, 0);            
-        }
+        }            
 
-    }
-
-    function refundBadRound(uint _roundNo) {
-
-        if (getRoundStatus(_roundNo)!=RoundStatus.TARGETLOST) {
-            return;
-        }
-
-        Round storage round = rounds[_roundNo];
-        uint amount = round.amountPerAddress[msg.sender];
-        if (amount > 0) {
-            round.amountPerAddress[msg.sender] = 0;
-            msg.sender.transfer(amount);
-            LogRefund(_roundNo,msg.sender,amount);
-        }
     }
 
     // web3 helpers ------------------------------------------------
 
-    function getCurrentRound() constant returns (uint) {
-        if (getRoundStatus(rounds.length-1)==RoundStatus.OPEN) {
+    function getCurrentRound(uint _now) constant returns (uint) {
+        // if starting, current round is zero
+        if (rounds.length == 0) {
+            return 0;
+        }
+        // if last round is open, then return last round
+        if (getRoundStatus(rounds.length-1,_now)==RoundStatus.OPEN) {
             return rounds.length-1;
         }
+        // return the new round
         return rounds.length;
     }
 
-    function isBetAvailable(uint _target) returns (bool) {
+    function isBetAvailable(uint _target, uint _now) returns (bool) {
 
-        if (getRoundStatus(rounds.length-1)!=RoundStatus.OPEN) {
+        if (getRoundStatus(rounds.length-1, _now)!=RoundStatus.OPEN) {
             return true;
         }
 
         return rounds[rounds.length-1].betTargets[_target].account == 0;
     }
     
-    function remainingRoundTime() constant returns (uint) {
-
-        if (rounds[rounds.length-1].closeDate > now) {
-            return rounds[rounds.length-1].closeDate.sub(now);
+    function getRoundCount(uint _now) external constant returns (uint) {
+        if (getRoundStatus(rounds.length,_now) == RoundStatus.OPEN) {
+            return rounds.length + 1;
         }
-
-        return 0;
-    }
-
-    function remainingRevealTime(uint _roundNo) constant returns (uint) {
-
-        uint revealTime = rounds[_roundNo].closeDate.add(betMinRevealLength);    
-
-        if (revealTime > now) {
-            return revealTime.sub(now);
-        }
-
-        return 0;
-    }
-
-    function getRoundCount() constant returns (uint) {
         return rounds.length;
     }
 
-    function getRoundAt(uint _roundNo) constant returns (
+    function getRoundAt(uint _roundNo,uint _now) external constant returns (
         RoundStatus status,
         uint closeDate,
         uint betAmount,
@@ -377,11 +398,12 @@ contract BettingonBase {
         uint lastCheckedBetNo,
         uint closestBetNo
     ) {
+        
+        status = getRoundStatus(_roundNo, _now);
+
         if (_roundNo == rounds.length) {
 
-            status = RoundStatus.OPEN;
-            uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
-            closeDate = startDate.add(betCycleLength);
+            uint startDate = thisRoundCloseDate();
             betAmount = getBetInEths();
             betCount = 0;
             target = 0;
@@ -391,7 +413,6 @@ contract BettingonBase {
             return;
         }
 
-        status = getRoundStatus(_roundNo);
         closeDate = rounds[_roundNo].closeDate;
         betAmount = rounds[_roundNo].betAmount;
         betCount = rounds[_roundNo].bets.length;
@@ -400,7 +421,7 @@ contract BettingonBase {
         closestBetNo = rounds[_roundNo].closestBetNo;
     }
     
-    function getBetAt(uint _roundNo, uint _betNo) constant returns (
+    function getBetAt(uint _roundNo, uint _betNo) external constant returns (
         address account,
         uint    target,
         string  comment
@@ -410,22 +431,28 @@ contract BettingonBase {
         comment = rounds[_roundNo].bets[_betNo].comment;
     }
     
-    function getNow() constant returns (uint) {
+    function thisRoundCloseDate() internal returns (uint) {
+       uint startDate = now.sub(now % betCycleLength).add(betCycleOffset);
+       return startDate.add(betCycleLength);
+    }
+
+    function getNow() external constant returns (uint) {
         return now;
     }
 
     /// generic helpers ------------------------------------------------
 
-    function isContract(address addr) returns (bool) {
+    function isContract(address addr) internal returns (bool) {
       uint size;
       assembly { size := extcodesize(addr) }
       return size > 0;
     }
-    function percentage(uint _amount, uint _perc) constant returns (uint) {
+
+    function percentage(uint _amount, uint _perc) internal constant returns (uint) {
         return _amount.mul(10**16).mul(_perc).div(10**18);
     }
 
-    function diff(uint _a, uint _b) constant returns (uint) {
+    function diff(uint _a, uint _b) internal constant returns (uint) {
        if (_a > _b) {
            return _a.sub(_b);
        } else {
