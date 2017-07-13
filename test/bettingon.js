@@ -37,7 +37,7 @@ contract("Basic unit tests", (accounts) => {
     const betCycleLength     = 3600;
     const betMinRevealLength = 3600;
     const betMaxRevealLength = 7200;
-    const betAmountInDollars = 10000;
+    const betAmount          = web3.toBigNumber("10000000000000000"); // 0.01 eth
     const platformFee        = 10;
     const boatFee            = 20;
 
@@ -50,7 +50,7 @@ contract("Basic unit tests", (accounts) => {
             betCycleOffset,
             betMinRevealLength,
             betMaxRevealLength,
-            betAmountInDollars,
+            betAmount,
             platformFee, platformFeeAddress,
             boatFee
         )
@@ -69,7 +69,7 @@ contract("Basic unit tests", (accounts) => {
         assert.equal((await bon.betCycleOffset()).toNumber(), betCycleOffset);
         assert.equal((await bon.betMinRevealLength()).toNumber(), betMinRevealLength);
         assert.equal((await bon.betMaxRevealLength()).toNumber(), betMaxRevealLength);
-        assert.equal((await bon.betAmountInDollars()).toNumber(), betAmountInDollars);
+        assert.equal((await bon.betAmount()).toNumber(), betAmount);
         assert.equal((await bon.platformFee()).toNumber(), platformFee);
         assert.equal((await bon.platformFeeAddress()), platformFeeAddress);
         assert.equal((await bon.boatFee()), boatFee);
@@ -77,7 +77,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("a bet is logged", async () => {
 
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         const trn = await bon.bet(260000,  {from : user1 , value : betValue})
@@ -91,7 +91,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("target reveal is logged", async () => {
 
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000,  {from : user1 , value : betValue})
@@ -107,7 +107,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("one bet, one win, no fees, forcing resolve logs generated", async () => {
 
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue})
@@ -137,7 +137,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("two bets, one win, forcing resolve", async () => {
 
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue})
@@ -156,7 +156,7 @@ contract("Basic unit tests", (accounts) => {
     
     it("get boat on exact bet matching", async () => {
 
-        let betValue1 = await bon.getBetInEths()
+        let betValue1 = await bon.betAmount()
         let roundNo1 = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue1})
@@ -169,7 +169,7 @@ contract("Basic unit tests", (accounts) => {
         let boat = percent(betValue1.mul(2).toNumber(),boatFee)
         assert.equal((await bon.boat()).toNumber(),boat);
 
-        let betValue2 = await bon.getBetInEths()
+        let betValue2 = await bon.betAmount()
         let roundNo2 = await bon.getCurrentRound(VMTIME)
         await bon.bet(270000, {from : user1 , value : betValue2})
         await bon.bet(260000, {from : user2 , value : betValue2})
@@ -195,7 +195,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("check getRoundStatus results", async () => {
 
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         assert.equal((await bon.getRoundStatus(roundNo,VMTIME)).toNumber(), OPEN);
@@ -227,7 +227,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("two bets in two rounds should autoresolve", async () => {
         
-        const betValue1 = await bon.getBetInEths()
+        const betValue1 = await bon.betAmount()
         const roundNo1 = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue1})
@@ -236,7 +236,7 @@ contract("Basic unit tests", (accounts) => {
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
 
-        const betValue2 = await bon.getBetInEths()
+        const betValue2 = await bon.betAmount()
         const roundNo2 = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue2})
@@ -248,7 +248,7 @@ contract("Basic unit tests", (accounts) => {
     });
 
     it("updateprice before resolution date does not work", async () => {
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue})
@@ -261,7 +261,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("two bets cannot have the same amount", async () => {
         
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000, {from : user1 , value : betValue})
@@ -276,7 +276,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("cannot diposit less ether", async () => {
         
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         try {
@@ -290,7 +290,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("if more ether is sent, excess is refunded", async () => {
         
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         const balance = web3.eth.getBalance(user1);
@@ -306,7 +306,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("fail to refund before resolving", async () => {
         
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000,  {from : user1 , value : betValue})
@@ -322,7 +322,7 @@ contract("Basic unit tests", (accounts) => {
 
     it("success to refund when round cannot be resolved", async () => {
         
-        const betValue = await bon.getBetInEths()
+        const betValue = await bon.betAmount()
         const roundNo = await bon.getCurrentRound(VMTIME)
 
         await bon.bet(260000,  {from : user1 , value : betValue})

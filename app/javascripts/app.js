@@ -26,7 +26,7 @@ var betCycleLength;
 var betCycleOffset;      
 var betMinRevealLength;
 var betMaxRevealLength;
-var betAmountInDollars;
+var betAmount;
 var platformFee;
 var boatFee;
 
@@ -62,12 +62,11 @@ window.App = {
             bon.betCycleOffset(),
             bon.betMinRevealLength(),
             bon.betMaxRevealLength(),
-            bon.betAmountInDollars(),
+            bon.betAmount(),
             bon.platformFee(),
             bon.boatFee(),
             bon.lastRevealedRound(),
             bon.resolvingRound(),
-            bon.milliDollarsPerEth(),
             bon.boat(),
             bon.getNow()
          ])
@@ -75,12 +74,11 @@ window.App = {
       .then(function (_values) {
 
         let now = Math.floor(Date.now() / 1000);
-
         betCycleLength = _values[0].toNumber();
         betCycleOffset = _values[1].toNumber();
         betMinRevealLength = _values[2].toNumber();
         betMaxRevealLength = _values[3].toNumber();
-        betAmountInDollars = _values[4].toNumber();
+        betAmount = _values[4].toNumber();
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
 
@@ -90,14 +88,13 @@ window.App = {
         paramInfo+=", betCycleOffset="+betCycleOffset;
         paramInfo+="\nbetMinRevealLength="+betMinRevealLength;
         paramInfo+=", betMaxRevealLength="+betMaxRevealLength;
-        paramInfo+="\nbetAmountInDollars="+betAmountInDollars;
+        paramInfo+="\nbetAmount="+betAmount;
         paramInfo+="\nplatformFee="+platformFee;
         paramInfo+=", boatFee="+boatFee;
         paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
         paramInfo+=", resolvingRound="+_values[8].toNumber();
-        paramInfo+="\nmilliDollarsPerEth="+_values[9].toNumber();
-        paramInfo+="\nboat="+_values[10].toNumber();
-        paramInfo+="\nnowhost, nowevm:"+now+","+_values[11].toNumber();
+        paramInfo+="\nboat="+_values[9].toNumber();
+        paramInfo+="\nnowhost, nowevm:"+now+","+_values[10].toNumber();
 
         document.getElementById("paramInfo").innerHTML = "<pre>"+paramInfo+"</pre>"
 
@@ -169,7 +166,7 @@ window.App = {
     .then(function(_values) {
       info = self.roundInfoFromValues(roundNo,_values,now);
       let bets = []
-      for (let betNo = 0; betNo < _values[3].toNumber(); betNo++) { 
+      for (let betNo = 0; betNo < _values[2].toNumber(); betNo++) { 
         bets.push(bon.getBetAt(roundNo,betNo));
       } 
       return Promise.all(bets)
@@ -196,13 +193,12 @@ window.App = {
         "TARGETSET ",
         "TARGETLOST",
         "RESOLVED  ",
-        "FINISHED      "
+        "FINISHED  "
       ]
 
       let [
         status,
         closeDate,
-        betAmount,
         betCount,
         target,
         lastCheckedBetNo,
@@ -213,8 +209,7 @@ window.App = {
         values[2].toNumber(),
         values[3].toNumber(),
         values[4].toNumber(),
-        values[5].toNumber(),
-        values[6].toNumber()
+        values[5].toNumber()
       ];
 
       let info ="ROUND "+roundNo
@@ -309,13 +304,12 @@ window.App = {
       return bon.getRoundAt(_roundNo,web3.toBigNumber(now))
     })
     .then(function(_values) {
-      let betValue = _values[2].toNumber();
-      let target = prompt("Your bid? (must diposit "+betValue+")")
+      let target = prompt("Your bid? (must diposit "+betAmount+")")
       if (target === null) {
         return; 
       }
       self.dotransaction(
-        bon.bet(target,"",{from: account, value: _values[2] })
+        bon.bet(target,"",{from: account, value: betAmount })
       );
     })
 

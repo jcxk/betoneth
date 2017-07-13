@@ -42,9 +42,7 @@ contract BettingonBase {
     }
 
     struct Round {
-
         uint     balance;    // total money balance 
-        uint     betAmount;  // bet amount 
         uint     closeDate;  // date this round closes
 
         uint     target;     // is the goal price
@@ -63,7 +61,7 @@ contract BettingonBase {
     uint    public betCycleOffset;      // the offset of the betting cicle
     uint    public betMinRevealLength;  // minimum time for revealig target
     uint    public betMaxRevealLength;  // maxmimum time for revealig target
-    uint    public betAmountInDollars;
+    uint    public betAmount;
     uint    public platformFee;         // percentage that goes to sharePlatform
     address public platformFeeAddress;  // address where foes the platfromFee
     uint    public boatFee;             // boat for the bet that matches the amount
@@ -73,7 +71,6 @@ contract BettingonBase {
     Round[] public rounds;
     uint    public lastRevealedRound;
     uint    public resolvingRound;
-    uint    public milliDollarsPerEth;
     uint    public boat;
 
     /// code ===================================================
@@ -83,7 +80,7 @@ contract BettingonBase {
         uint    _betCycleOffset,
         uint    _betMinRevealLength,
         uint    _betMaxRevealLength,
-        uint    _betAmountInDollars,
+        uint    _betAmount,
         uint    _platformFee,
         address _platformFeeAddress,
         uint    _boatFee
@@ -93,21 +90,14 @@ contract BettingonBase {
       betCycleLength = _betCycleLength;
       betMinRevealLength = _betMinRevealLength;
       betMaxRevealLength = _betMaxRevealLength;
-      betAmountInDollars = _betAmountInDollars;
+      betAmount = _betAmount;
       platformFee = _platformFee;
       platformFeeAddress = _platformFeeAddress;
       boatFee = _boatFee;
 
       assert(!isContract(_platformFeeAddress));
 
-      milliDollarsPerEth = 250000; // set initial fake value
-
     }
-
-    function getBetInEths() constant returns (uint) {
-        uint eth = 1 ether;
-        return eth.div(1000).div(milliDollarsPerEth.mul(betAmountInDollars));
-    } 
 
     function getRoundStatus(uint _roundNo, uint _now) constant returns (RoundStatus) {
 
@@ -158,8 +148,6 @@ contract BettingonBase {
 
     function updateEthPrice(uint _milliDollarsPerEth) internal {
         
-        milliDollarsPerEth = _milliDollarsPerEth;
-
         while (lastRevealedRound < rounds.length ) {
 
             RoundStatus status = getRoundStatus(lastRevealedRound, now);
@@ -199,7 +187,6 @@ contract BettingonBase {
             rounds.length++;
          
             rounds[rounds.length-1].closeDate = closeDate;
-            rounds[rounds.length-1].betAmount = getBetInEths();
             
         }
     }
@@ -268,10 +255,10 @@ contract BettingonBase {
             revert();
         }
 
-        require(msg.value >= round.betAmount);
+        require(msg.value >= betAmount);
 
-        if (msg.value > round.betAmount) {
-            msg.sender.transfer(msg.value.sub(round.betAmount));
+        if (msg.value > betAmount) {
+            msg.sender.transfer(msg.value.sub(betAmount));
         }
 
         round.bets.length++;
@@ -280,11 +267,11 @@ contract BettingonBase {
 
         round.betTargets[_target] = round.bets[round.bets.length-1];
         round.amountPerAddress[msg.sender] = 
-            round.amountPerAddress[msg.sender].add(round.betAmount);
+            round.amountPerAddress[msg.sender].add(betAmount);
 
-        round.balance = round.balance.add(round.betAmount);
+        round.balance = round.balance.add(betAmount);
 
-        LogBet(rounds.length-1,msg.sender,_target,round.betAmount);
+        LogBet(rounds.length-1,msg.sender,_target,betAmount);
 
         autoResolvePreviousRounds();
 
@@ -393,7 +380,6 @@ contract BettingonBase {
     function getRoundAt(uint _roundNo,uint _now) external constant returns (
         RoundStatus status,
         uint closeDate,
-        uint betAmount,
         uint betCount,
         uint target,
         uint lastCheckedBetNo,
@@ -405,7 +391,6 @@ contract BettingonBase {
         if (_roundNo == rounds.length) {
 
             closeDate = thisRoundCloseDate(_now);
-            betAmount = getBetInEths();
             betCount = 0;
             target = 0;
             lastCheckedBetNo = 0;
@@ -415,7 +400,6 @@ contract BettingonBase {
         }
 
         closeDate = rounds[_roundNo].closeDate;
-        betAmount = rounds[_roundNo].betAmount;
         betCount = rounds[_roundNo].bets.length;
         target = rounds[_roundNo].target;
         lastCheckedBetNo = rounds[_roundNo].lastCheckedBetNo;
@@ -457,6 +441,5 @@ contract BettingonBase {
        } else {
            return _b.sub(_a);
        }
-    }
-    
+    }   
 }

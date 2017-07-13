@@ -7,7 +7,7 @@ module.exports = function(deployer) {
      0,    // betCycleOffset
      10, // betMinReveaLength
      60, // betMaxReveaLength
-     1, // betAmountInDollars
+     web3.toBigNumber("10000000000000000"),
      1, // platformFee
   	 "0xdead", // platformFeeAddress
   	 3  // boatFee
