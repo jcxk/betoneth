@@ -20,7 +20,6 @@ contract BettingonBase {
 
     struct Bet {
         address account;
-        string  comment;
         uint    target;     // in ethers
     }
    
@@ -257,7 +256,7 @@ contract BettingonBase {
 
     } 
    
-    function bet(uint _target, string _comment) payable {
+    function bet(uint _target) payable {
 
         // assert(!isContract(msg.sender)); -- crashes testrpc evm_estimategas!
 
@@ -278,7 +277,6 @@ contract BettingonBase {
         round.bets.length++;
         round.bets[round.bets.length-1].account = msg.sender;
         round.bets[round.bets.length-1].target = _target;
-        round.bets[round.bets.length-1].comment = _comment;
 
         round.betTargets[_target] = round.bets[round.bets.length-1];
         round.amountPerAddress[msg.sender] = 
@@ -426,12 +424,10 @@ contract BettingonBase {
     
     function getBetAt(uint _roundNo, uint _betNo) external constant returns (
         address account,
-        uint    target,
-        string  comment
+        uint    target
     ){
         account = rounds[_roundNo].bets[_betNo].account;
         target = rounds[_roundNo].bets[_betNo].target;
-        comment = rounds[_roundNo].bets[_betNo].comment;
     }
     
     function thisRoundCloseDate(uint _now) internal returns (uint) {
