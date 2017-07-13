@@ -13,9 +13,9 @@ var BettingonMock = contract(bettingon_artifacts);
 const FUTURE     = 0  // Not exists yet
 const OPEN       = 1  // Open to bets
 const CLOSED     = 2  // Closed to bets, waiting oracle to set the price
-const TARGETWAIT = 3  // Waiting set the price
-const TARGETSET  = 4  // Oracle set the price, calculating best bet
-const TARGETLOST = 5  // Oracle cannot set the price [end]
+const PRICEWAIT  = 3  // Waiting set the price
+const PRICESET   = 4  // Oracle set the price, calculating best bet
+const PRICELOST  = 5  // Oracle cannot set the price [end]
 const RESOLVED   = 6  // Bet calculated 
 const FINISHED   = 7  // Prize paid [end]
 
@@ -166,7 +166,7 @@ window.App = {
     .then(function(_values) {
       info = self.roundInfoFromValues(roundNo,_values,now);
       let bets = []
-      for (let betNo = 0; betNo < _values[2].toNumber(); betNo++) { 
+      for (let betNo = 0; betNo < _values[3].toNumber(); betNo++) { 
         bets.push(bon.getBetAt(roundNo,betNo));
       } 
       return Promise.all(bets)
@@ -189,14 +189,15 @@ window.App = {
         "FUTURE    ",
         "OPEN      ",
         "CLOSED    ",
-        "TARGETWAIT",
-        "TARGETSET ",
-        "TARGETLOST",
+        "PRICEWAIT",
+        "PRICESET ",
+        "PRICELOST",
         "RESOLVED  ",
         "FINISHED  "
       ]
 
       let [
+        roundId,
         status,
         closeDate,
         betCount,
@@ -209,10 +210,11 @@ window.App = {
         values[2].toNumber(),
         values[3].toNumber(),
         values[4].toNumber(),
-        values[5].toNumber()
+        values[5].toNumber(),
+        values[6].toNumber()
       ];
 
-      let info ="ROUND "+roundNo
+      let info ="ROUND #"+roundId
       info += " "+statuses[status];
       info += " "+betCount+" bets ";
 
@@ -224,13 +226,13 @@ window.App = {
         case CLOSED :
            info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to start set target."
            break;
-        case TARGETWAIT :
+        case PRICEWAIT :
            info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" to finish set target."
            break;
-        case TARGETSET :
+        case PRICESET :
            info += " - target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
            break;
-        case TARGETLOST :
+        case PRICELOST :
            break;
         case RESOLVED :
            info += " - target="+target+" winner is "+closestBetNo
@@ -299,17 +301,15 @@ window.App = {
 
     const now = Math.floor(Date.now() / 1000);
 
-    bon.getCurrentRound(web3.toBigNumber(now))
-    .then(function(_roundNo) {
-      return bon.getRoundAt(_roundNo,web3.toBigNumber(now))
-    })
+    bon.getRoundById(0,web3.toBigNumber(now))
     .then(function(_values) {
+      console.log("===>",_values)
       let target = prompt("Your bid? (must diposit "+betAmount+")")
       if (target === null) {
         return; 
       }
       self.dotransaction(
-        bon.bet(target,"",{from: account, value: betAmount })
+        bon.bet(_values[0],target,{from: account, value: betAmount })
       );
     })
 
@@ -333,12 +333,12 @@ window.App = {
 
     var self = this;
 
-    let roundNo = prompt("Round to force resolve:")
-    if (roundNo === null) {
+    let roundId = prompt("Round to force resolve:")
+    if (roundId === null) {
       return; 
     }
     self.dotransaction(
-      bon.forceResolveRound(roundNo,{from: account})
+      bon.forceResolveRound(roundId,{from: account})
     );
 
   },
@@ -347,18 +347,15 @@ window.App = {
 
     var self = this;
 
-    let roundNo = prompt("Round to refund:")
-    if (roundNo === null) {
+    let roundId = prompt("Round to refund:")
+    if (roundId === null) {
       return; 
     }
     self.dotransaction(
-      bon.refund(roundNo,{from: account})
+      bon.refund(roundId,{from: account})
     );
 
   }
-
-
-
 
 };
 
