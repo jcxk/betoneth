@@ -1,10 +1,10 @@
 pragma solidity ^0.4.11;
 
-import "./BettingonBase.sol";
+import "./BettingonImpl.sol";
 
-contract BettingonMock is BettingonBase {
+contract BettingonTest is BettingonImpl {
     
-   function BettingonMock(
+   function BettingonTest(
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinReveaLength,
@@ -14,7 +14,9 @@ contract BettingonMock is BettingonBase {
         address _platformFeeAddress,
         uint    _boatFee
 
-    ) BettingonBase(
+    ) BettingonImpl (
+        0,
+        0,
         _betCycleLength,
         _betCycleOffset,
         _betMinReveaLength,
@@ -29,7 +31,6 @@ contract BettingonMock is BettingonBase {
 
     function __updateEthPrice(uint _milliDollarsPerEth) {
         updateEthPrice(_milliDollarsPerEth);
-
     }
 
 }

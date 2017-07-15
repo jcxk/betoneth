@@ -2,7 +2,7 @@
 /*
 Copyright (c) 2015-2016 Oraclize SRL
 Copyright (c) 2016 Oraclize LTD
-
+ 
 
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

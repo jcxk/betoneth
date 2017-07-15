@@ -1,14 +1,16 @@
 pragma solidity ^0.4.11;
 
 import "./SafeMath.sol";
+import "./Directory.sol";
+import "./Bettingon.sol";
 
-contract BettingonBase {
+contract BettingonImpl is Bettingon {
 
     using SafeMath for uint;
 
     /// events -------------------------------------------------
 
-    event Log(uint v);
+    event Log(address v);
     event LogError(string error);
     event LogWinner(uint roundId, address winner);
     event LogWinnerPaid(uint roundId, address winner, uint amount, uint boat);
@@ -24,23 +26,6 @@ contract BettingonBase {
         uint    target;     // in ethers
     }
    
-    /*
-       Flow diagram for RoundStatus
-      
-       OPEN -> CLOSED -> PRICEWAIT -> PRICESET  -> RESOLVED -> FINISHED
-                                    \> PRICELOST
-    */
-   
-    enum RoundStatus {
-        FUTURE,        // Not exists yet
-        OPEN,          // Open to bets
-        CLOSED,        // Closed to bets, waiting oracle to set the price
-        PRICEWAIT,     // Waiting oracle to set the price        
-        PRICESET,      // Oracle set the price, calculating best bet
-        PRICELOST,     // Oracle cannot set the price [end]
-        RESOLVED,      // Bet calculated
-        FINISHED       // Bet paid
-    }
 
     struct Round {
         uint                   roundId;     // the id of the round
@@ -60,26 +45,33 @@ contract BettingonBase {
 
     /// inmutable construction parameters ----------------------
 
-    uint    public betCycleLength;      // how long the bet cicle lasts. eg 1 day
-    uint    public betCycleOffset;      // the offset of the betting cicle
-    uint    public betMinRevealLength;  // minimum time for revealig target
-    uint    public betMaxRevealLength;  // maxmimum time for revealig target
-    uint    public betAmount;
-    uint    public platformFee;         // percentage that goes to sharePlatform
-    address public platformFeeAddress;  // address where foes the platfromFee
-    uint    public boatFee;             // boat for the bet that matches the amount
+    uint      public betCycleLength;      // how long the bet cicle lasts. eg 1 day
+    uint      public betCycleOffset;      // the offset of the betting cicle
+    uint      public betMinRevealLength;  // minimum time for revealig target
+    uint      public betMaxRevealLength;  // maxmimum time for revealig target
+    uint      public betAmount;
+    uint      public platformFee;         // percentage that goes to sharePlatform
+    address   public platformFeeAddress;  // address where foes the platfromFee
+    uint      public boatFee;             // boat for the bet that matches the amount
+    address   public priceUpdaterAddress; // who is allowed to update the price
+    Directory public directory;
+    address   public owner;
 
     /// state variables ----------------------------------------
 
-    Round[] public        rounds;
-    mapping (uint=>uint)  roundById;
-    uint    public        lastRevealedRound;
-    uint    public        resolvingRound;
-    uint    public        boat;
+
+    Round[]   public        rounds;
+    mapping   (uint=>uint)  roundById;
+    uint      public        lastRevealedRound;
+    uint      public        resolvingRound;
+    uint      public        boat;
+    uint      public        stopAtRound;
 
     /// code ===================================================
 
-    function BettingonBase(
+    function BettingonImpl(
+        address _priceUpdaterAddress,
+        address _directory,
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinRevealLength,
@@ -90,6 +82,8 @@ contract BettingonBase {
         uint    _boatFee
         ) {
 
+      owner = msg.sender;
+
       betCycleOffset = _betCycleOffset;
       betCycleLength = _betCycleLength;
       betMinRevealLength = _betMinRevealLength;
@@ -99,31 +93,42 @@ contract BettingonBase {
       platformFeeAddress = _platformFeeAddress;
       boatFee = _boatFee;
 
+      priceUpdaterAddress = _priceUpdaterAddress;
+      directory = Directory(_directory);
+
       assert(!isContract(_platformFeeAddress));
 
     }
 
-
     function bet(uint _roundId, uint _target) payable {
 
-        // assert(!isContract(msg.sender)); -- crashes testrpc evm_estimategas!
-
+        // -- check that the bet is not outdated due network congestion
         var (roundId,) = thisRoundInfo(now);
         
         if (roundId!=_roundId) {
             LogBetOutdated(_roundId,msg.sender,_target);
             return;
         }
-        
+
+        // -- check owner finished this bettington
+        assert(stopAtRound < roundId);
+
+        // -- check if the user is in the directory
+        assert(address(directory)==0 || directory.isAllowed(msg.sender));
+
+        // -- check sent value is, at least the minimum value
+        assert(msg.value >= betAmount);
+
+        // -- create a new round if requiered
         createRoundIfRequiered(); 
 
-        Round storage round = rounds[rounds.length-1];
-       
+        // -- check if someone already bet on this target
+        Round storage round = rounds[rounds.length-1];       
         if (round.betTargets[_target].account != 0 ) {
             revert();
         }
 
-        require(msg.value >= betAmount);
+        // -- check if someone already bet on this target
 
         if (msg.value > betAmount) {
             msg.sender.transfer(msg.value.sub(betAmount));
@@ -218,11 +223,10 @@ contract BettingonBase {
         resolveRound(roundById[_roundId], false);
     }
 
-
-    // internal functions ------------------------------------------
-
-    function updateEthPrice(uint _milliDollarsPerEth) internal {
+    function updateEthPrice(uint _milliDollarsPerEth) {
         
+        assert(priceUpdaterAddress==0 || msg.sender == priceUpdaterAddress);
+
         while (lastRevealedRound < rounds.length ) {
 
             RoundStatus status = getRoundStatus(lastRevealedRound, now);
@@ -244,6 +248,14 @@ contract BettingonBase {
         }
         
     }
+
+    function terminate(uint _stopAtRound) {
+        assert (msg.sender == owner );
+
+        stopAtRound = _stopAtRound;
+    }
+
+    // internal functions ------------------------------------------
 
     function getRoundStatus(uint _roundNo, uint _now) internal constant returns (RoundStatus) {
 
@@ -406,20 +418,7 @@ contract BettingonBase {
         (roundId,status,closeDate,betCount,target,lastCheckedBetNo,closestBetNo) = 
            getRoundAt(roundNo,_now);
     }
-/*
-    function getCurrentRound(uint _now) constant returns (uint) {
-        // if starting, current round is zero
-        if (rounds.length == 0) {
-            return 0;
-        }
-        // if last round is open, then return last round
-        if (getRoundStatus(rounds.length-1,_now)==RoundStatus.OPEN) {
-            return rounds.length-1;
-        }
-        // return the new round
-        return rounds.length;
-    }
-*/
+
     function isBetAvailable(uint _target, uint _now) returns (bool) {
 
         if (getRoundStatus(rounds.length-1, _now)!=RoundStatus.OPEN) {
@@ -479,7 +478,6 @@ contract BettingonBase {
         return now;
     }
 
-
     /// generic helpers ------------------------------------------------
 
     function isContract(address addr) internal returns (bool) {
@@ -498,5 +496,6 @@ contract BettingonBase {
        } else {
            return _b.sub(_a);
        }
-    }   
+    }
+
 }

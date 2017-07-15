@@ -6,9 +6,9 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import bettingon_artifacts from '../../build/contracts/BettingonMock.json'
+import bettingon_artifacts from '../../build/contracts/BettingonDeploy.json'
 
-var BettingonMock = contract(bettingon_artifacts);
+var Bettingon = contract(bettingon_artifacts);
 
 const FUTURE     = 0  // Not exists yet
 const OPEN       = 1  // Open to bets
@@ -29,14 +29,19 @@ var betMaxRevealLength;
 var betAmount;
 var platformFee;
 var boatFee;
+var priceUpdaterAddress;
+
+//bon = Bettingon.at("0x29578faf2780b7873c1d296a114ab5a268b4ead0")
 
 window.App = {
 
   start: function() {
     var self = this;
 
+    self.setStatus("Loading...",true);
+
     // Bootstrap the MetaCoin abstraction for Use.
-    BettingonMock.setProvider(web3.currentProvider);
+    Bettingon.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
@@ -53,8 +58,21 @@ window.App = {
       accounts = accs;
       account = accounts[0];
 
-      BettingonMock.deployed()
-      .then(function(_bon) {
+      let getBonFunc
+
+      if (typeof bon === 'undefined') {
+
+        getBonFunc = Bettingon.deployed();
+
+      } else {
+
+        getBonFunc = new Promise(function (resolve, reject) {
+            resolve(bon);
+        });
+
+      } 
+
+      getBonFunc.then(function(_bon) {
         bon = _bon;
         console.log("bon=",bon.address)
         return Promise.all([
@@ -68,7 +86,8 @@ window.App = {
             bon.lastRevealedRound(),
             bon.resolvingRound(),
             bon.boat(),
-            bon.getNow()
+            bon.getNow(),
+            bon.priceUpdaterAddress()
          ])
       })
       .then(function (_values) {
@@ -81,22 +100,37 @@ window.App = {
         betAmount = _values[4].toNumber();
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
+        priceUpdaterAddress = _values[11];
 
         let paramInfo = "";
 
         paramInfo+="betCycleLength="+betCycleLength;
-        paramInfo+=", betCycleOffset="+betCycleOffset;
+        paramInfo+="\nbetCycleOffset="+betCycleOffset;
         paramInfo+="\nbetMinRevealLength="+betMinRevealLength;
-        paramInfo+=", betMaxRevealLength="+betMaxRevealLength;
+        paramInfo+="\nbetMaxRevealLength="+betMaxRevealLength;
         paramInfo+="\nbetAmount="+betAmount;
         paramInfo+="\nplatformFee="+platformFee;
-        paramInfo+=", boatFee="+boatFee;
+        paramInfo+="\nboatFee="+boatFee;
         paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
-        paramInfo+=", resolvingRound="+_values[8].toNumber();
+        paramInfo+="\nresolvingRound="+_values[8].toNumber();
         paramInfo+="\nboat="+_values[9].toNumber();
         paramInfo+="\nnowhost, nowevm:"+now+","+_values[10].toNumber();
+        paramInfo+="\npriceUpdaterAddress="+priceUpdaterAddress;
 
-        document.getElementById("paramInfo").innerHTML = "<pre>"+paramInfo+"</pre>"
+        console.log(paramInfo);
+
+        let displayInfo = ""; 
+        displayInfo = "Bet amount      : "+self.toEth(_values[4])+" ETH"
+        displayInfo+= "\nBoat            : "+self.toEth(_values[9])+" ETH"
+        displayInfo+= "\nNew round each  : "+self.timediff2str(betCycleLength)
+        displayInfo+= "\nUTC time is     : "+new Date()
+
+        document.getElementById("paramInfo").innerHTML = "<pre>"+displayInfo+"</pre>"
+
+        if (priceUpdaterAddress!=bon.address) {
+           document.getElementById("setprice").style = "display: none;" 
+        }
+        self.setStatus("Loaded",false);
 
         self.refresh();
       })
@@ -144,7 +178,12 @@ window.App = {
     status.innerHTML = message;
   },
 
+  toEth : function(v) {
+    return web3.toBigNumber(v).div(web3.toWei(1,'finney'))/1000
+  },
+
   timediff2str : function(diff) {
+    
      const d = diff / (24*3600) ; diff = diff%(24*3600)
      const h = diff / (3600) ; diff = diff % 3600
      const m = diff / (60)
@@ -154,7 +193,12 @@ window.App = {
         if (v>9) return ""+v;
         return "0"+v;
      }
-     return pad(d)+"d"+pad(h)+"h"+pad(m)+"m"+pad(s)+"s"
+
+     if (d>0) {
+       return pad(d)+"d"+pad(h)+"h"+pad(m)+"m";
+     } else {
+       return pad(h)+"h"+pad(m)+"m"; 
+     }
   },
 
   roundFullInfo : function (roundNo,now) {
@@ -172,7 +216,7 @@ window.App = {
       return Promise.all(bets)
     }).then(function(_bets) {
       for (let betNo = 0; betNo < _bets.length; betNo++) { 
-        info += "\n >" + _bets[betNo][0] +" "+_bets[betNo][1].toNumber()
+        info += "\n--->" + _bets[betNo][0] +" bets for "+_bets[betNo][1].toNumber()/1000+" USD/ETH"
       } 
       info+="\n\n"
       return new Promise(function (resolve, reject) {
@@ -222,12 +266,15 @@ window.App = {
         case FUTURE :
         case OPEN :
           info += " - "+self.timediff2str(closeDate-now)+" to close."
+          info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
           break;
         case CLOSED :
-           info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to start set target."
+           info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize sets the price."
+           info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICEWAIT :
-           info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" to finish set target."
+           info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
+           info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICESET :
            info += " - target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
@@ -250,7 +297,9 @@ window.App = {
     const now = Math.floor(Date.now() / 1000);
 
     var roundNo;
-    
+   
+    self.setStatus("Refreshing",true);    
+
     return bon.getRoundCount(web3.toBigNumber(now))
     .then(function(_roundCount) {
       let roundCount = _roundCount.toNumber();
@@ -266,9 +315,10 @@ window.App = {
         info+=_infos[roundNo]
       } 
       document.getElementById("info").innerHTML = "<pre>"+info+"</pre>";
+      self.setStatus("",false);    
     })
     .catch(function(e) {
-      alert("failed")
+      self.setStatus("Failed",false);    
       console.log(e);
     });
   },
@@ -280,15 +330,12 @@ window.App = {
     self.setStatus("Waiting network agrees with operation...",true);
     _promise
     .then ( (_tx) => {
-      //toastr.info('Operation sent');
       console.log("tx "+_tx.tx);
       return self.getTransactionReceiptMined(_tx.tx);     
     }).then ( ( _resolve, _reject ) => {
-      self.setStatus("Success",false);
-      //toastr.info('Success');
       self.refresh();
+      self.setStatus("Success",false);
     }).catch ( (e) => {
-      //toastr.error('Failed, see logs')
       console.log(e);
       self.setStatus("Failed",false);
     })
@@ -304,7 +351,7 @@ window.App = {
     bon.getRoundById(0,web3.toBigNumber(now))
     .then(function(_values) {
       console.log("===>",_values)
-      let target = prompt("Your bid? (must diposit "+betAmount+")")
+      let target = prompt("Your bid? (must diposit "+self.toEth(betAmount)+" ETH)")
       if (target === null) {
         return; 
       }

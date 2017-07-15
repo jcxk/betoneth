@@ -8,7 +8,7 @@
 const assertJump = require("./helpers/assertJump.js");
 const timeTravel = require("./helpers/timeTravel.js");
 
-const BettingonMock = artifacts.require("../contracts/BettingonMock.sol");
+const BettingonTest = artifacts.require("../contracts/BettingonTest.sol");
 
 contract("Basic unit tests", (accounts) => {
 
@@ -45,7 +45,8 @@ contract("Basic unit tests", (accounts) => {
 
     beforeEach(async () => {
 
-        bon = await BettingonMock.new(
+        bon = await BettingonTest.new(
+
             betCycleLength,
             betCycleOffset,
             betMinRevealLength,
@@ -60,7 +61,6 @@ contract("Basic unit tests", (accounts) => {
         //   if round changes just in the middle of the test
         const ts =  (await bon.getNow()).toNumber()
         await timeTravel(betCycleLength - (ts % betCycleLength));
-        await bon.__updateEthPrice(250000);
 
     });
 

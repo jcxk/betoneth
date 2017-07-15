@@ -40,5 +40,8 @@
     "web3": "^0.18.4",
     "webpack": "^2.6.1",
     "webpack-dev-server": "^2.5.1"
+  },
+  "dependencies": {
+    "ethpm": "0.0.14"
   }
 }
