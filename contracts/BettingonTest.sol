@@ -15,6 +15,7 @@ contract BettingonTest is BettingonImpl {
         uint    _boatFee
 
     ) BettingonImpl (
+        msg.sender,
         0,
         0,
         _betCycleLength,

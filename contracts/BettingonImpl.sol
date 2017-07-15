@@ -3,6 +3,7 @@ pragma solidity ^0.4.11;
 import "./SafeMath.sol";
 import "./Directory.sol";
 import "./Bettingon.sol";
+import "./PriceUpdater.sol";
 
 contract BettingonImpl is Bettingon {
 
@@ -45,20 +46,19 @@ contract BettingonImpl is Bettingon {
 
     /// inmutable construction parameters ----------------------
 
-    uint      public betCycleLength;      // how long the bet cicle lasts. eg 1 day
-    uint      public betCycleOffset;      // the offset of the betting cicle
-    uint      public betMinRevealLength;  // minimum time for revealig target
-    uint      public betMaxRevealLength;  // maxmimum time for revealig target
-    uint      public betAmount;
-    uint      public platformFee;         // percentage that goes to sharePlatform
-    address   public platformFeeAddress;  // address where foes the platfromFee
-    uint      public boatFee;             // boat for the bet that matches the amount
-    address   public priceUpdaterAddress; // who is allowed to update the price
-    Directory public directory;
-    address   public owner;
+    uint         public betCycleLength;      // how long the bet cicle lasts. eg 1 day
+    uint         public betCycleOffset;      // the offset of the betting cicle
+    uint         public betMinRevealLength;  // minimum time for revealig target
+    uint         public betMaxRevealLength;  // maxmimum time for revealig target
+    uint         public betAmount;
+    uint         public platformFee;         // percentage that goes to sharePlatform
+    address      public platformFeeAddress;  // address where foes the platfromFee
+    uint         public boatFee;             // boat for the bet that matches the amount
+    PriceUpdater public priceUpdater;        // who is allowed to update the price
+    Directory    public directory;
+    address      public owner;
 
     /// state variables ----------------------------------------
-
 
     Round[]   public        rounds;
     mapping   (uint=>uint)  roundById;
@@ -70,8 +70,9 @@ contract BettingonImpl is Bettingon {
     /// code ===================================================
 
     function BettingonImpl(
+        address _owner,
         address _priceUpdaterAddress,
-        address _directory,
+        address _directoryAddress,
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinRevealLength,
@@ -82,7 +83,7 @@ contract BettingonImpl is Bettingon {
         uint    _boatFee
         ) {
 
-      owner = msg.sender;
+      owner = _owner;
 
       betCycleOffset = _betCycleOffset;
       betCycleLength = _betCycleLength;
@@ -93,8 +94,8 @@ contract BettingonImpl is Bettingon {
       platformFeeAddress = _platformFeeAddress;
       boatFee = _boatFee;
 
-      priceUpdaterAddress = _priceUpdaterAddress;
-      directory = Directory(_directory);
+      priceUpdater = PriceUpdater(_priceUpdaterAddress);
+      directory = Directory(_directoryAddress);
 
       assert(!isContract(_platformFeeAddress));
 
@@ -225,7 +226,7 @@ contract BettingonImpl is Bettingon {
 
     function updateEthPrice(uint _milliDollarsPerEth) {
         
-        assert(priceUpdaterAddress==0 || msg.sender == priceUpdaterAddress);
+        assert(address(priceUpdater)==0 || address(priceUpdater)==msg.sender);
 
         while (lastRevealedRound < rounds.length ) {
 
@@ -333,6 +334,8 @@ contract BettingonImpl is Bettingon {
             rounds[rounds.length-1].closeDate = closeDate;
 
             roundById[roundId] = rounds.length-1;
+            
+            priceUpdater.schedule(closeDate-now+betMinRevealLength);
         }
     }
 
@@ -354,7 +357,7 @@ contract BettingonImpl is Bettingon {
             return;
         }
   
-        Round round = rounds[_roundNo];
+        Round storage round = rounds[_roundNo];
   
         uint target           = round.target;
         uint lastCheckedBetNo = round.lastCheckedBetNo;

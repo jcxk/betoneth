@@ -29,9 +29,9 @@ var betMaxRevealLength;
 var betAmount;
 var platformFee;
 var boatFee;
-var priceUpdaterAddress;
+var priceUpdater;
 
-//bon = Bettingon.at("0x29578faf2780b7873c1d296a114ab5a268b4ead0")
+bon = Bettingon.at("0x7B77eBD4760D80A12586097ec1527ff8367a067f")
 
 window.App = {
 
@@ -87,7 +87,7 @@ window.App = {
             bon.resolvingRound(),
             bon.boat(),
             bon.getNow(),
-            bon.priceUpdaterAddress()
+            bon.priceUpdater()
          ])
       })
       .then(function (_values) {
@@ -100,7 +100,7 @@ window.App = {
         betAmount = _values[4].toNumber();
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
-        priceUpdaterAddress = _values[11];
+        priceUpdater = _values[11];
 
         let paramInfo = "";
 
@@ -115,7 +115,7 @@ window.App = {
         paramInfo+="\nresolvingRound="+_values[8].toNumber();
         paramInfo+="\nboat="+_values[9].toNumber();
         paramInfo+="\nnowhost, nowevm:"+now+","+_values[10].toNumber();
-        paramInfo+="\npriceUpdaterAddress="+priceUpdaterAddress;
+        paramInfo+="\npriceUpdater="+priceUpdater;
 
         console.log(paramInfo);
 
@@ -127,7 +127,7 @@ window.App = {
 
         document.getElementById("paramInfo").innerHTML = "<pre>"+displayInfo+"</pre>"
 
-        if (priceUpdaterAddress!=bon.address) {
+        if (priceUpdater!=bon.address) {
            document.getElementById("setprice").style = "display: none;" 
         }
         self.setStatus("Loaded",false);
@@ -350,11 +350,11 @@ window.App = {
 
     bon.getRoundById(0,web3.toBigNumber(now))
     .then(function(_values) {
-      console.log("===>",_values)
-      let target = prompt("Your bid? (must diposit "+self.toEth(betAmount)+" ETH)")
-      if (target === null) {
+      let targetStr = prompt("Your bid? (e.g. 215.500)")
+      if (targetStr === null) {
         return; 
       }
+      let target=Math.round(parseFloat(targetStr)*1000)
       self.dotransaction(
         bon.bet(_values[0],target,{from: account, value: betAmount })
       );

@@ -1,12 +1,16 @@
 pragma solidity ^0.4.11;
 
 import "./BettingonImpl.sol";
+import "./PriceUpdaterImpl.sol";
 
 contract BettingonDeploy is BettingonImpl {
     
    function BettingonDeploy(
+        address owner,
+        address priceUpdaterAddress
     ) BettingonImpl(
-        /* priceUpdaterAddress */ 0xE15E57fE0D93E2F898d80A1AFa6a33da682358e9,
+        owner,
+        priceUpdaterAddress,
         /* directory           */ 0, 
         /* betCycleLength      */ 3600*4,
         /* betCycleOffset      */ 0,
@@ -20,13 +24,26 @@ contract BettingonDeploy is BettingonImpl {
         platformFeeAddress = msg.sender;
     }
 
-    function __updateEthPrice(uint _milliDollarsPerEth) {
-        updateEthPrice(_milliDollarsPerEth);
-    }
-
     function terminate() {
         assert(msg.sender == owner);
         selfdestruct(owner);
     }
 
+}
+
+contract Deployer {
+    
+    PriceUpdaterImpl public pu;
+    BettingonDeploy  public bd;
+    
+    function Deployer() payable {
+        pu = new PriceUpdaterImpl(msg.sender);
+        bd = new BettingonDeploy(msg.sender,address(pu));
+        pu.initialize(
+            address(bd),
+            "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
+        );
+        pu.transfer(msg.value);
+    }
+    
 }
