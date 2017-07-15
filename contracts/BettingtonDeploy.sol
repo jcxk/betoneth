@@ -24,4 +24,9 @@ contract BettingonDeploy is BettingonImpl {
         updateEthPrice(_milliDollarsPerEth);
     }
 
+    function terminate() {
+        assert(msg.sender == owner);
+        selfdestruct(owner);
+    }
+
 }
