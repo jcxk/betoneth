@@ -335,7 +335,9 @@ contract BettingonImpl is Bettingon {
 
             roundById[roundId] = rounds.length-1;
             
-            priceUpdater.schedule(closeDate-now+betMinRevealLength);
+            if (address(priceUpdater) != 0 ) {
+                priceUpdater.schedule(closeDate-now+betMinRevealLength);
+            }
         }
     }
 
