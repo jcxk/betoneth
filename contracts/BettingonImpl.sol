@@ -1,71 +1,11 @@
 pragma solidity ^0.4.11;
 
 import "./SafeMath.sol";
-import "./Directory.sol";
 import "./Bettingon.sol";
-import "./PriceUpdater.sol";
 
 contract BettingonImpl is Bettingon {
 
     using SafeMath for uint;
-
-    /// events -------------------------------------------------
-
-    event Log(address v);
-    event LogError(string error);
-    event LogWinner(uint roundId, address winner);
-    event LogWinnerPaid(uint roundId, address winner, uint amount, uint boat);
-    event LogBet(uint roundId, address account, uint target);
-    event LogBetOutdated(uint roundId, address account, uint target);
-    event LogRefund(uint roundId, address account, uint amount);
-    event LogPriceSet(uint roundId, uint target);
-
-    /// types ---------------------------------------------------
-
-    struct Bet {
-        address account;
-        uint    target;     // in ethers
-    }
-   
-
-    struct Round {
-        uint                   roundId;     // the id of the round
-
-        uint                   balance;     // total money balance 
-        uint                   closeDate;   // date this round closes
-
-        uint                   target;      // is the goal price
-
-        Bet[]                  bets;
-        mapping(uint=>Bet)     betTargets;
-        mapping(address=>uint) amountPerAddress;
-
-        uint                   lastCheckedBetNo;
-        uint                   closestBetNo;
-    }
-
-    /// inmutable construction parameters ----------------------
-
-    uint         public betCycleLength;      // how long the bet cicle lasts. eg 1 day
-    uint         public betCycleOffset;      // the offset of the betting cicle
-    uint         public betMinRevealLength;  // minimum time for revealig target
-    uint         public betMaxRevealLength;  // maxmimum time for revealig target
-    uint         public betAmount;
-    uint         public platformFee;         // percentage that goes to sharePlatform
-    address      public platformFeeAddress;  // address where foes the platfromFee
-    uint         public boatFee;             // boat for the bet that matches the amount
-    PriceUpdater public priceUpdater;        // who is allowed to update the price
-    Directory    public directory;
-    address      public owner;
-
-    /// state variables ----------------------------------------
-
-    Round[]   public        rounds;
-    mapping   (uint=>uint)  roundById;
-    uint      public        lastRevealedRound;
-    uint      public        resolvingRound;
-    uint      public        boat;
-    uint      public        stopAtRound;
 
     /// code ===================================================
 
