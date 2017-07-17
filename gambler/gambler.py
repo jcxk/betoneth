@@ -30,15 +30,15 @@ def get_contract():
 
 	src = "pragma solidity ^0.4.11;\n" + \
 		get_and_filter(base_url+'/Directory.sol') + \
-	    get_and_filter(base_url+'/PriceUpdater.sol') + \
-	    get_and_filter(base_url+'/Bettingon.sol')
+		get_and_filter(base_url+'/PriceUpdater.sol') + \
+		get_and_filter(base_url+'/Bettingon.sol')
 
 	compiled = solc.compile_source(src)
 
 	w3 = web3.Web3(web3.HTTPProvider('http://localhost:8546'))
 
 	contract_factory = web3.contract.construct_contract_factory(
-	    web3=w3,
+		web3=w3,
 		abi=compiled['<stdin>:Bettingon']['abi']
 	)
 
