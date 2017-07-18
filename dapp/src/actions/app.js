@@ -4,3 +4,13 @@ export function placeBet(betObj) {
   };
 }
 
+export function betConfig(obj) {
+    return {
+        type: 'CONFIG_BET', payload: obj
+    };
+}
+
+
+
+
+
