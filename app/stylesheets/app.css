@@ -16,8 +16,17 @@ input {
 }
 
 button {
-  font-size: 16px;
-  padding: 5px;
+  border-radius: 12px;
+  border-size: 1px;
+  background: #FFF;
+  padding: 3px; 
+  border-color: #000;
+  font-size: 12px;
+}
+
+button:hover {
+  background: #000;
+  color: #FFF;
 }
 
 h1, h2 {
@@ -37,6 +46,12 @@ h3 {
   color: #AAA;
   font-size: 24px;
 }
+
+a {
+  color: black;
+}
+
+
 
 .black {
   color: black;
