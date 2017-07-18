@@ -129,9 +129,8 @@ window.App = {
         displayInfo += "<br><br>"
 
         document.getElementById("paramInfo").innerHTML = displayInfo
-
-        if (priceUpdater!=bon.address) {
-           document.getElementById("setprice").style = "display: none;" 
+        if (priceUpdater==bon.address) {
+           document.getElementById("setprice").style = "display:block" 
         }
         self.setStatus("Loaded",false);
 
@@ -271,25 +270,25 @@ window.App = {
 
       let info ="ROUND #"+roundId
       info += " "+statuses[status];
-      info += " "+betCount+" bets ";
+      info += " | "+betCount+" bets |";
 
       switch (status) {
         case FUTURE :
         case OPEN :
-          info += " - "+self.timediff2str(closeDate-now)+" to close."
+          info += "&nbsp;"+self.timediff2str(closeDate-now)+" to close."
           info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));         
           info += "&nbsp;<button id='bid' onclick='App.uiBid("+roundId+")'> Bid </button>"
           break;
         case CLOSED :
-           info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize sets the price."
+           info += "&nbsp;"+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize starts set the price."
            info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICEWAIT :
-           info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
+           info += "&nbsp;"+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
            info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICESET :
-           info += " - target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
+           info += "&nbsp;price is "+target+" USD/ETH ["+lastCheckedBetNo+"/"+betCount+" resolved]"
            info += "&nbsp;<button onclick='App.uiForceResolve("+roundId+")'> Resolve </button>"
            info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
            break;
@@ -297,11 +296,11 @@ window.App = {
            info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
            break;
         case RESOLVED :
-           info += " - target="+target+" winner is "+closestBetNo
+           info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
            info += "<br><button onclick='App.uiRefund("+roundId+")'> Refund </button>"
            break;
         case FINISHED :
-           info += " - target="+target+" winner is "+closestBetNo
+           info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
            break;
       }
       return info;    

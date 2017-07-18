@@ -1,6 +1,6 @@
 body {
-  margin-left: 25%;
-  margin-right: 25%;
+  margin-left: 15%;
+  margin-right: 15%;
   font-family: "Open Sans", sans-serif;
 }
 
@@ -18,15 +18,16 @@ input {
 button {
   border-radius: 12px;
   border-size: 1px;
-  background: #FFF;
+  background: #D0A9F5;
   padding: 3px; 
-  border-color: #000;
+  color: #FFF;
+  border-color: #D0A9F5;
   font-size: 12px;
 }
 
 button:hover {
-  background: #000;
-  color: #FFF;
+  background-color: #4C0B5F;
+  border-color: #4C0B5F;
 }
 
 h1, h2 {
