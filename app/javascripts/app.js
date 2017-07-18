@@ -294,6 +294,7 @@ window.App = {
            info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
            break;
         case PRICELOST :
+           info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
            break;
         case RESOLVED :
            info += " - target="+target+" winner is "+closestBetNo
