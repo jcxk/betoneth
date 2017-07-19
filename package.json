@@ -6,7 +6,10 @@
     "lint": "eslint ./",
     "build": "webpack",
     "dev": "webpack-dev-server",
-    "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build"
+    "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
+    "testrpc": "testrpc -d -u 0 -u 1",
+    "contract-update": "truffle migrate --reset",
+    "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc"
   },
   "author": [
     "Juan Carlos Escamilla",
@@ -64,6 +67,7 @@
     "json-loader": "^0.5.4",
     "react-hot-loader": "^3.0.0-beta.7",
     "style-loader": "^0.13.2",
+    "truffle": "^3.4.5",
     "truffle-contract": "^1.1.11",
     "web3": "^0.18.4",
     "webpack": "^3.2.0",
