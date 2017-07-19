@@ -12,12 +12,15 @@ import * as _ from 'lodash';
 
 export class Home extends React.Component {
 
+
+
     constructor(props) {
-        super(props)
-        this.state = {open: false}
-        this.handleToggle = this.handleToggle.bind(this)
-        this.handleClose = this.handleClose.bind(this)
+        super(props);
+        this.state = {open: false};
+        this.handleToggle = this.handleToggle.bind(this);
+        this.handleClose = this.handleClose.bind(this);
         this.placeBet = this.placeBet.bind(this);
+        this.account = "";
         console.log(this.props)
     }
 
@@ -30,7 +33,7 @@ export class Home extends React.Component {
     }
 
     async getContract(web3) {
-        this.contractManager = new ContractManager(web3,'production');
+        this.contractManager = new ContractManager(web3,'development');
         await this.contractManager.init();
         console.log(this.contractManager);
         this.props.dispatch(
@@ -46,7 +49,9 @@ export class Home extends React.Component {
                 )
             )
         );
-
+        console.log(
+          this.contractManager.account, 'get account'
+        );
     }
 
     componentDidMount() {
@@ -62,20 +67,26 @@ export class Home extends React.Component {
                 // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
                 window.web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
             }
+          window.web3.eth.getAccounts(
+            (err,accs) => {
+              this.getContract(window.web3);
+              this.contractManager.account = accs != null ? accs[0] : false;
+            }
+          );
 
-            this.getContract(window.web3);
         });
 
     }
 
-    placeBet(values) {
-        console.log(values)
-        //adding current round to values.
-        let betObj = {
-            round: 1,
-            ...values
-        }
-        this.props.dispatch(AppActions.placeBet(betObj));
+    async placeBet(values) {
+        console.log(values);
+        this.contractManager.uiBid(values.expected_value);
+      this.props.dispatch(
+        AppActions.getRounds(
+          await this.contractManager.getRounds(
+          1,1
+        )));
+
     }
 
 
@@ -116,7 +127,14 @@ export class Home extends React.Component {
                         info += " - price is "+item.target+" ETH/USD and  winner account is "+item.bets[item.closestBetNo].account;
                         break;
                 }
-                return <p key={index}>round: #{index} | bets {item.bets.length} | {this.contractManager.getStatus(item.status)} -> {info}</p>
+                return(
+              <div>
+                    <p key={index}>round: #{index} | bets {item.bets.length} | {this.contractManager.getStatus(item.status)} -> {info}</p>
+                  <ul>
+                    {_.map(item.bets, (item,index) => <li>#{index} {item.target} from {item.account}</li>)}
+                  </ul>
+              </div>
+                )
             }));
         } else {
             return <p>Rounds Loading..</p>
