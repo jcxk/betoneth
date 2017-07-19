@@ -1,6 +1,6 @@
 const initialState = {
-    bets: [],
-    config: false
+    config: false,
+    rounds: false
 };
 
 export default function appReducer(state = initialState, action) {
@@ -15,7 +15,11 @@ export default function appReducer(state = initialState, action) {
                 ...state,
                 config : action.payload
             };
-
+      case 'GET_ROUNDS':
+            return {
+                ...state,
+                rounds : action.payload
+            };
         default:
             return state;
     }

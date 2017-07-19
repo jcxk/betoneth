@@ -10,6 +10,11 @@ export function betConfig(obj) {
     };
 }
 
+export function getRounds(obj) {
+    return {
+        type: 'GET_ROUNDS', payload: obj
+    };
+}
 
 
 

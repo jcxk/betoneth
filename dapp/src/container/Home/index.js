@@ -31,16 +31,27 @@ export class Home extends React.Component {
 
     async getContract(web3) {
         this.contractManager = new ContractManager(web3,'production');
+        await this.contractManager.init();
+        console.log(this.contractManager);
         this.props.dispatch(
             AppActions.betConfig(
-                await this.contractManager.getConfig()
+                this.contractManager.config
             )
         );
+
+        this.props.dispatch(
+            AppActions.getRounds(
+                await this.contractManager.getRounds(
+                    await this.contractManager.getRoundCount(Date.now())
+                )
+            )
+        );
+
     }
 
     componentDidMount() {
-        var self = this;
-        window.addEventListener('load', function () {
+
+        window.addEventListener('load', () =>  {
             // Checking if Web3 has been injected by the browser (Mist/MetaMask)
             if (typeof web3 !== 'undefined') {
                 console.warn("Using web3 detected from external source. If you find that your accounts don't appear or you have 0 MetaCoin, ensure you've configured that source properly. If using MetaMask, see the following link. Feel free to delete this warning. :) http://truffleframework.com/tutorials/truffle-and-metamask")
@@ -52,7 +63,7 @@ export class Home extends React.Component {
                 window.web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
             }
 
-            self.getContract(window.web3);
+            this.getContract(window.web3);
         });
 
     }
@@ -67,10 +78,49 @@ export class Home extends React.Component {
         this.props.dispatch(AppActions.placeBet(betObj));
     }
 
-    renderBets(bets) {
-        return bets.map(function (item, index) {
-            return <li key={index}>round: {item.round} - expected: {item.expected_value}</li>
-        });
+
+
+    renderRounds(rounds) {
+
+
+
+        if (rounds != false) {
+            return _.reverse(_.map(rounds,(item, index) =>  {
+                let info = "";
+                switch (this.contractManager.getStatus(item.status)) {
+
+                    case "FUTURE" :
+                    case "OPEN" :
+                        console.log(new Date(item.closeDate));
+                        console.log(this.contractManager.config.betMinRevealLength.toNumber());
+                        info += " - "+moment(item.closeDate).format()+" to close.";
+                        info += "\nbets are for price published in "+ moment(item.closeDate).add(this.contractManager.config.betMinRevealLength.toNumber(),"seconds").format();
+                        break;
+                        /*
+                    case "CLOSED" :
+                        info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize sets the price."
+                        info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+                        break;
+                    case "PRICEWAIT":
+                        info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
+                        info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+                        break;
+                        */
+                    case "PRICESET" :
+                        info += " - price is "+item.target+" ETH/USD "+item.lastCheckedBetNo+"/"+item.betCount+" resolved."
+                        break;
+                    case "PRICELOST" :
+                        break;
+                    case "RESOLVED" :
+                    case "FINISHED" :
+                        info += " - price is "+item.target+" ETH/USD and  winner account is "+item.bets[item.closestBetNo].account;
+                        break;
+                }
+                return <p key={index}>round: #{index} | bets {item.bets.length} | {this.contractManager.getStatus(item.status)} -> {info}</p>
+            }));
+        } else {
+            return <p>Rounds Loading..</p>
+        }
     }
 
 
@@ -80,6 +130,7 @@ export class Home extends React.Component {
             let roundDuration = moment.duration(config.betCycleLength.toNumber(), "seconds");
             return (
             <div>
+                <p>Deployed at {this.contractManager.contract.address} , updater at {config.priceUpdater}</p>
                 <p>Bet amount {this.contractManager.toEth(config.betAmount)} ETH</p>
                 <p>Boat {this.contractManager.toEth(config.boat)} ETH</p>
                 <p>New round each in {roundDuration.format("d[d] h:mm:ss")}</p>
@@ -92,6 +143,7 @@ export class Home extends React.Component {
     }
 
     render() {
+
         return (
             <div>
                 <MuiThemeProvider>
@@ -101,7 +153,7 @@ export class Home extends React.Component {
                             title="Bettingon"
                         />
                         <BetForm onSubmit={this.placeBet}/>
-                        {this.renderBets(this.props.app.bets)}
+                        {this.renderRounds(this.props.app.rounds)}
                         {this.renderConfig(this.props.app.config)}
                     </div>
                 </MuiThemeProvider>
@@ -112,7 +164,7 @@ export class Home extends React.Component {
 }
 
 function mapStateToProps(state) {
-    console.log(state);
+    console.log(state.app, 'refresh state');
     return {
         app: state.app
     }
