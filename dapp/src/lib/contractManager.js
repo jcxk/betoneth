@@ -137,7 +137,8 @@ class contractManager {
       )
     }
     console.log(lastRound, roundStart);
-    return _.keyBy(rounds, 'roundId');
+    //return _.keyBy(rounds, 'roundId');
+    return rounds;
   }
 
   async getBetsRound(roundId, betCount) {
@@ -166,55 +167,35 @@ class contractManager {
   async uiBid (targetValue) {
 
     const now = Math.floor(Date.now() / 1000);
-    return this.contract.getRoundById(0,this.web3.toBigNumber(now))
+    return await this.contract.getRoundById(0,this.web3.toBigNumber(now))
       .then( (_values) => {
         let target=Math.round(parseFloat(targetValue)*1000);
-        console.log(_values[0], "betting");
-        this.dotransaction(
+        return this.dotransaction(
           this.contract.bet(_values[0],target,{from: this.account, value: this.config.betAmount.toNumber(), gas: 500000 })
         );
       })
 
   }
 
-  uiSetPrice () {
-
-    var self = this;
-
-    let target = prompt("Set target to:")
-    if (target === null) {
-      return;
-    }
-    self.dotransaction(
-      this.contract.__updateEthPrice(target,"",{from: account})
+  async setPrice (price) {
+    console.log(price);
+    return await this.dotransaction(
+      this.contract.updateEthPrice(price,{from: this.account})
     );
 
   }
 
-  uiForceResolve () {
-
-    var self = this;
-
-    let roundId = prompt("Round to force resolve:")
-    if (roundId === null) {
-      return;
-    }
-    self.dotransaction(
-      this.contract.forceResolveRound(roundId,{from: account})
+  async forceResolve (roundId) {
+    return this.dotransaction(
+       this.contract.forceResolveRound(roundId,{from: this.account})
     );
 
   }
 
-  uiRefund () {
+  async refund (roundId) {
 
-    var self = this;
-
-    let roundId = prompt("Round to refund:")
-    if (roundId === null) {
-      return;
-    }
-    return self.dotransaction(
-      this.contract.refund(roundId,{from: account})
+    return this.dotransaction(
+      this.contract.refund(roundId,{from: this.account})
     );
 
   }
@@ -267,6 +248,25 @@ class contractManager {
       return new Promise(function (resolve, reject) {
         transactionReceiptAsync(txnHash, resolve, reject);
       });
+    }
+  }
+
+  timediff2str(diff) {
+
+    const d = diff / (24*3600) ; diff = diff%(24*3600)
+    const h = diff / (3600) ; diff = diff % 3600
+    const m = diff / (60)
+    const s = diff % 60
+    const pad = function (v) {
+      v = Math.floor(v);
+      if (v>9) return ""+v;
+      return "0"+v;
+    }
+
+    if (d>0) {
+      return pad(d)+"d"+pad(h)+"h"+pad(m)+"m";
+    } else {
+      return pad(h)+"h"+pad(m)+"m";
     }
   }
 

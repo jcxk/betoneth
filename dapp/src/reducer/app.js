@@ -1,4 +1,5 @@
 const initialState = {
+    env: 'production',
     config: false,
     rounds: false
 };

@@ -10,6 +10,8 @@ import moment from 'moment';
 require("moment-duration-format");
 import * as _ from 'lodash';
 
+import ReactTable from 'react-table';
+
 export class Home extends React.Component {
 
 
@@ -32,8 +34,8 @@ export class Home extends React.Component {
         this.setState({open: true})
     }
 
-    async getContract(web3) {
-        this.contractManager = new ContractManager(web3,'development');
+    async getContract(web3, env) {
+        this.contractManager = new ContractManager(web3, env);
         await this.contractManager.init();
         console.log(this.contractManager);
         this.props.dispatch(
@@ -55,7 +57,7 @@ export class Home extends React.Component {
     }
 
     componentDidMount() {
-
+        var self = this;
         window.addEventListener('load', () =>  {
             // Checking if Web3 has been injected by the browser (Mist/MetaMask)
             if (typeof web3 !== 'undefined') {
@@ -69,11 +71,28 @@ export class Home extends React.Component {
             }
           window.web3.eth.getAccounts(
             (err,accs) => {
-              this.getContract(window.web3);
+              let env = 'development';
+              console.log()
+              let networkWeb3= window.web3.version.network;
+              console.log(networkWeb3);
+              if (networkWeb3 == 1) {
+                env = 'production';
+              };
+              console.log(env);
+              this.getContract(window.web3, env);
               this.contractManager.account = accs != null ? accs[0] : false;
             }
           );
 
+          var account = window.web3.eth.accounts[0];
+          var accountInterval = setInterval(function() {
+            if (window.web3.eth.accounts[0] !== account) {
+              account = window.web3.eth.accounts[0];
+              self.forceUpdate();
+              self.contractManager.account = account;
+              console.log('changed account detected', self.contractManager.account);
+            }
+          }, 100);
         });
 
     }
@@ -93,30 +112,69 @@ export class Home extends React.Component {
 
     renderRounds(rounds) {
 
+      const columns = [
+        {
+        Header: 'Round',
+        accessor: 'round', // String-based value accessors!
+        Cell: props => { return '#'+props.index}
+        },
+        {
+        Header: 'Total Bets',
+        accessor: 'bets',
+        Cell: props => { return props.value.length}
+        },
+        {
+        Header: 'Status',
+        accessor: 'status',
+        Cell: props => { return this.contractManager.getStatus(props.value)}
+        },
+        {
+          Header: 'Time to Close',
+          accessor: 'closeDate',
+          Cell: props => {
+            return this.contractManager.timediff2str(props.value-new Date())
+          }
+        },
+        {
+          Header: 'Options',
+          accessor: 'closeDate',
+          Cell: (props) => {
+            return (
+              <button onClick={(e) => {e.preventDefault(); console.log('adsf');this.contractManager.setPrice(120)}} >SetPrice</button>
+            )
+
+          }
+        }
+      ];
 
 
         if (rounds != false) {
-            return _.reverse(_.map(rounds,(item, index) =>  {
+          return (
+            <ReactTable data={rounds} columns={columns} />)
+            ;
+          /*
+          return _.reverse(_.map(rounds,(item, index) =>  {
                 let info = "";
+                let now = new Date();
+                let closeDateinfo = "\nbets are for price published in "+ new Date(
+                  1000*(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber())
+                );
                 switch (this.contractManager.getStatus(item.status)) {
 
                     case "FUTURE" :
-                    case "OPEN" :
-                        console.log(new Date(item.closeDate));
-                        console.log(this.contractManager.config.betMinRevealLength.toNumber());
-                        info += " - "+moment(item.closeDate).format()+" to close.";
-                        info += "\nbets are for price published in "+ moment(item.closeDate).add(this.contractManager.config.betMinRevealLength.toNumber(),"seconds").format();
+                  case "OPEN" :
+                        info += " - "+this.contractManager.timediff2str(item.closeDate-now)+" to close."
+                        info +=closeDateinfo;
                         break;
-                        /*
+
                     case "CLOSED" :
-                        info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize sets the price."
-                        info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+                        info += " - "+this.contractManager.timediff2str(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber()-now)+" to oraclize sets the price."
+                        info +=closeDateinfo;
                         break;
                     case "PRICEWAIT":
-                        info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
-                        info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+                        info += " - "+this.contractManager.timediff2str(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber()-now)+" deadline to oraclize sets the price."
+                        info +=closeDateinfo;
                         break;
-                        */
                     case "PRICESET" :
                         info += " - price is "+item.target+" ETH/USD "+item.lastCheckedBetNo+"/"+item.betCount+" resolved."
                         break;
@@ -127,6 +185,7 @@ export class Home extends React.Component {
                         info += " - price is "+item.target+" ETH/USD and  winner account is "+item.bets[item.closestBetNo].account;
                         break;
                 }
+
                 return(
               <div>
                     <p key={index}>round: #{index} | bets {item.bets.length} | {this.contractManager.getStatus(item.status)} -> {info}</p>
@@ -136,6 +195,9 @@ export class Home extends React.Component {
               </div>
                 )
             }));
+
+
+*/
         } else {
             return <p>Rounds Loading..</p>
         }
@@ -162,7 +224,8 @@ export class Home extends React.Component {
 
     render() {
 
-        return (
+
+      return (
             <div>
                 <MuiThemeProvider>
                     <div>
@@ -171,8 +234,9 @@ export class Home extends React.Component {
                             title="Bettingon"
                         />
                         <BetForm onSubmit={this.placeBet}/>
-                        {this.renderRounds(this.props.app.rounds)}
-                        {this.renderConfig(this.props.app.config)}
+                      {this.renderConfig(this.props.app.config)}
+                      {this.renderRounds(this.props.app.rounds)}
+
                     </div>
                 </MuiThemeProvider>
 
