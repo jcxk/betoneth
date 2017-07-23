@@ -1,13 +1,23 @@
 import React from 'react';
-import { Route, IndexRoute } from 'react-router';
+import { Route, Switch } from 'react-router-dom';
 
-import App from './container/App/index';
-import Home from './container/Home/index';
-import NotFound from './container/NotFound/index';
+import App from './container/App';
+import Home from './container/Home';
+import NotFound from './container/NotFound';
 
-export default (
-  <Route path="/" component={App}>
-    <IndexRoute component={Home}/>
-    <Route path="*" component={NotFound}/>
-  </Route>
+const About = () => (
+  <div>
+    <h2>About</h2>
+  </div>
 );
+
+const Routes =  () =>
+  <App>
+    <Switch>
+        <Route exact path="/" component={Home}/>
+        <Route path="/about" render={About} />
+        <Route component={NotFound}/>
+    </Switch>
+  </App>
+;
+export default Routes;
