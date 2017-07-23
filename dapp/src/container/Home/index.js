@@ -9,7 +9,7 @@ import ContractManager from "../../lib/contractManager.js";
 import moment from 'moment';
 require("moment-duration-format");
 import * as _ from 'lodash';
-
+import { Link } from 'react-router-dom';
 import ReactTable from 'react-table';
 
 export class Home extends React.Component {
@@ -223,6 +223,7 @@ export class Home extends React.Component {
                             onLeftIconButtonTouchTap={this.handleToggle}
                             title="Bettingon"
                         />
+                      <Link to ="/about">About</Link>
                         <BetForm onSubmit={this.placeBet}/>
                       {this.renderConfig(this.props.app.config)}
                       {this.renderRounds(this.props.app.rounds)}
