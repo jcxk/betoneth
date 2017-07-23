@@ -5,6 +5,8 @@
   "scripts": {
     "lint": "eslint ./",
     "build": "webpack",
+    "build-dapp": "NODE_ENV=production webpack --config dapp/webpack.prod.config.js",
+    "publish-dapp": "npm run build-dapp && gh-pages -t -d dapp/build -b gh-pages",
     "dev": "webpack-dev-server",
     "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
     "testrpc": "testrpc -d -u 0 -u 1",
