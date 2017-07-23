@@ -9,7 +9,8 @@
     "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
     "testrpc": "testrpc -d -u 0 -u 1",
     "contract-update": "truffle migrate --reset",
-    "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc"
+    "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc",
+    "eslint-dapp" : "eslint -c dapp/.eslintrc.json dapp"
   },
   "author": [
     "Juan Carlos Escamilla",
@@ -59,6 +60,8 @@
     "eslint-config-standard": "^6.2.1",
     "eslint-plugin-babel": "^4.1.1",
     "eslint-plugin-import": "^2.7.0",
+    "eslint-plugin-json": "^1.2.0",
+    "eslint-plugin-jsx-a11y": "^6.0.2",
     "eslint-plugin-mocha": "^4.11.0",
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-react": "^7.1.0",

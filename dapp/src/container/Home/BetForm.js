@@ -24,9 +24,6 @@ export class BetForm extends Component {
         </div>
         <div>
           <button type="submit" disabled={submitting}>Submit</button>
-          <button id="setprice" >SetPrice</button>
-          <button id="resolve" >ForceResolve</button>
-          <button id="refund" >Refund</button>
         </div>
       </form>
     )

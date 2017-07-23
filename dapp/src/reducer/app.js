@@ -1,7 +1,7 @@
 const initialState = {
     env: 'production',
     config: false,
-    rounds: false
+    rounds: []
 };
 
 export default function appReducer(state = initialState, action) {

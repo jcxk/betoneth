@@ -138,6 +138,7 @@ class contractManager {
     }
     console.log(lastRound, roundStart);
     //return _.keyBy(rounds, 'roundId');
+    console.log(rounds);
     return rounds;
   }
 
@@ -171,7 +172,11 @@ class contractManager {
       .then( (_values) => {
         let target=Math.round(parseFloat(targetValue)*1000);
         return this.dotransaction(
-          this.contract.bet(_values[0],target,{from: this.account, value: this.config.betAmount.toNumber(), gas: 500000 })
+          this.contract.bet(
+            _values[0],
+            target,
+            { from: this.account, value: this.config.betAmount.toNumber(), gas: 500000 }
+            )
         );
       })
 

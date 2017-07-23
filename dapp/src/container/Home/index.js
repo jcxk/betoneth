@@ -71,14 +71,7 @@ export class Home extends React.Component {
             }
           window.web3.eth.getAccounts(
             (err,accs) => {
-              let env = 'development';
-              console.log()
-              let networkWeb3= window.web3.version.network;
-              console.log(networkWeb3);
-              if (networkWeb3 == 1) {
-                env = 'production';
-              };
-              console.log(env);
+              let env = window.web3.version.network == 1 ? 'production' : 'development';
               this.getContract(window.web3, env);
               this.contractManager.account = accs != null ? accs[0] : false;
             }
@@ -112,46 +105,7 @@ export class Home extends React.Component {
 
     renderRounds(rounds) {
 
-      const columns = [
-        {
-        Header: 'Round',
-        accessor: 'round', // String-based value accessors!
-        Cell: props => { return '#'+props.index}
-        },
-        {
-        Header: 'Total Bets',
-        accessor: 'bets',
-        Cell: props => { return props.value.length}
-        },
-        {
-        Header: 'Status',
-        accessor: 'status',
-        Cell: props => { return this.contractManager.getStatus(props.value)}
-        },
-        {
-          Header: 'Time to Close',
-          accessor: 'closeDate',
-          Cell: props => {
-            return this.contractManager.timediff2str(props.value-new Date())
-          }
-        },
-        {
-          Header: 'Options',
-          accessor: 'closeDate',
-          Cell: (props) => {
-            return (
-              <button onClick={(e) => {e.preventDefault(); console.log('adsf');this.contractManager.setPrice(120)}} >SetPrice</button>
-            )
 
-          }
-        }
-      ];
-
-
-        if (rounds != false) {
-          return (
-            <ReactTable data={rounds} columns={columns} />)
-            ;
           /*
           return _.reverse(_.map(rounds,(item, index) =>  {
                 let info = "";
@@ -198,9 +152,7 @@ export class Home extends React.Component {
 
 
 */
-        } else {
-            return <p>Rounds Loading..</p>
-        }
+
     }
 
 
@@ -223,7 +175,45 @@ export class Home extends React.Component {
     }
 
     render() {
+      const columns = [
 
+        {
+          Header: 'Round',
+          accessor: 'roundId',
+          Cell: props => { return '#'+props.value}
+        },
+        {
+          Header: 'Total Bets',
+          accessor: 'bets',
+          Cell: props => { return props.value.length}
+        },
+        {
+          Header: 'Status',
+          accessor: 'status',
+          Cell: props => { return this.contractManager.getStatus(props.value)}
+        },
+        {
+          Header: 'Time to Close',
+          accessor: 'closeDate',
+          Cell: props => {
+            return this.contractManager.timediff2str(props.value-new Date())
+          }
+        },
+        {
+          Header: 'Options',
+          Cell: (props) => {
+
+            if (props.row.status == 6) {
+              return (
+                <button onClick={(e) => {
+                  e.preventDefault();
+                  this.contractManager.refund(props.row.roundId)
+                }}>Refund</button>
+              )
+            }
+          }
+        }
+      ];
 
       return (
             <div>
@@ -236,6 +226,16 @@ export class Home extends React.Component {
                         <BetForm onSubmit={this.placeBet}/>
                       {this.renderConfig(this.props.app.config)}
                       {this.renderRounds(this.props.app.rounds)}
+
+                        <ReactTable
+                        loading={this.props.app.rounds == false}
+                        data={this.props.app.rounds}
+                        columns={columns}
+                        sorted={[{
+                          id: 'round',
+                          desc: true
+                        }]}
+                        />
 
                     </div>
                 </MuiThemeProvider>
