@@ -10,7 +10,7 @@
     "testrpc": "testrpc -d -u 0 -u 1",
     "contract-update": "truffle migrate --reset",
     "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc",
-    "eslint-dapp" : "eslint -c dapp/.eslintrc.json dapp"
+    "eslint-dapp": "eslint -c dapp/.eslintrc.json dapp"
   },
   "author": [
     "Juan Carlos Escamilla",
@@ -67,6 +67,7 @@
     "eslint-plugin-react": "^7.1.0",
     "eslint-plugin-standard": "^2.3.1",
     "ethereumjs-testrpc": "^4.0.1",
+    "gh-pages": "^1.0.0",
     "html-webpack-plugin": "^2.29.0",
     "json-loader": "^0.5.4",
     "react-hot-loader": "^3.0.0-beta.7",
