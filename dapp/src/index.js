@@ -9,8 +9,8 @@ import injectTapEventPlugin from 'react-tap-event-plugin';
 injectTapEventPlugin();
 const store = configureStore();
 
-import createHistory from 'history/createBrowserHistory';
-const history = createHistory();
+import createBrowserHistory from 'history/createBrowserHistory';
+const history = createBrowserHistory();
 
 render(
     <AppContainer>

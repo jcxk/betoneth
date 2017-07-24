@@ -68,8 +68,9 @@ module.exports = {
         loader: 'style-loader!css-loader?sourceMap!sass-loader?sourceMap'
       },
       {
-        test: /\.(png|jpg)$/,
-        loader: 'url-loader?limit=8192'
+        test: /\.(ico|gif|png|jpg|jpeg|svg|webp)$/,
+        loaders: ["file-loader?context=public&name=./public/[path][name].[ext]"],
+        exclude: /node_modules/
       }
     ]
   }

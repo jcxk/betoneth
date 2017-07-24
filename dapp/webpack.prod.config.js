@@ -10,10 +10,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   context: path.resolve(__dirname, './src'),
-  devtool: 'source-map',
-  devServer: {
-    historyApiFallback: true,
-  },
+  devtool: 'inline-source-map',
   entry: {
     'app': [
       'babel-polyfill',
@@ -67,8 +64,9 @@ module.exports = {
         loader: 'style-loader!css-loader?sourceMap!sass-loader?sourceMap'
       },
       {
-        test: /\.(png|jpg)$/,
-        loader: 'url-loader?limit=8192'
+        test: /\.(ico|gif|png|jpg|jpeg|svg|webp)$/,
+        loaders: ["file-loader?context=public&name=./public/[path][name].[ext]"],
+        exclude: /node_modules/
       }
     ]
   }
