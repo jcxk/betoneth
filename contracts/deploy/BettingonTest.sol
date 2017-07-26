@@ -1,6 +1,6 @@
 pragma solidity ^0.4.11;
 
-import "./BettingonImpl.sol";
+import "../BettingonImpl.sol";
 
 contract BettingonTest is BettingonImpl {
     

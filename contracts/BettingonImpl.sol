@@ -1,6 +1,6 @@
 pragma solidity ^0.4.11;
 
-import "./SafeMath.sol";
+import "./lib/SafeMath.sol";
 import "./Bettingon.sol";
 
 contract BettingonImpl is Bettingon {
@@ -8,6 +8,8 @@ contract BettingonImpl is Bettingon {
     using SafeMath for uint;
 
     /// code ===================================================
+
+    event LogDebug(string what);
 
     function BettingonImpl(
         address _owner,
@@ -41,13 +43,13 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function bet(uint _roundId, uint _target) payable {
+    function bet(uint _roundId, uint[] _targets) payable {
 
         // -- check that the bet is not outdated due network congestion
         var (roundId,) = thisRoundInfo(now);
         
         if (roundId!=_roundId) {
-            LogBetOutdated(_roundId,msg.sender,_target);
+            LogBetOutdated(_roundId,msg.sender,_targets);
             return;
         }
 
@@ -58,40 +60,42 @@ contract BettingonImpl is Bettingon {
         assert(address(directory)==0 || directory.isAllowed(msg.sender));
 
         // -- check sent value is, at least the minimum value
-        assert(msg.value >= betAmount);
+        uint totalBetAmount = betAmount.mul(_targets.length);
+        assert(msg.value >= totalBetAmount);
+
+        // -- check if someone already bet on this target
+        if (msg.value > betAmount) {
+            msg.sender.transfer(msg.value.sub(totalBetAmount));
+        }
 
         // -- create a new round if requiered
-        createRoundIfRequiered(); 
+        createRoundIfRequiered();
 
-        // -- check if someone already bet on this target
-        Round storage round = rounds[rounds.length-1];       
-        if (round.betTargets[_target].account != 0 ) {
-            revert();
+        for (uint targetNo = 0; targetNo < _targets.length ; targetNo++) {
+
+            uint target = _targets[targetNo];
+
+            // -- check if someone already bet on this target
+            Round storage round = rounds[rounds.length-1];       
+            if (round.betTargets[target].account != 0 ) {
+                revert();
+            }
+
+            round.bets.length++;
+            round.bets[round.bets.length-1].account = msg.sender;
+            round.bets[round.bets.length-1].target = target;
+
+            round.betTargets[target] = round.bets[round.bets.length-1];
+            round.amountPerAddress[msg.sender] = 
+                round.amountPerAddress[msg.sender].add(betAmount);
+
+            round.balance = round.balance.add(betAmount);
+
         }
-
-        // -- check if someone already bet on this target
-
-        if (msg.value > betAmount) {
-            msg.sender.transfer(msg.value.sub(betAmount));
-        }
-
-        round.bets.length++;
-        round.bets[round.bets.length-1].account = msg.sender;
-        round.bets[round.bets.length-1].target = _target;
-
-        round.betTargets[_target] = round.bets[round.bets.length-1];
-        round.amountPerAddress[msg.sender] = 
-            round.amountPerAddress[msg.sender].add(betAmount);
-
-        round.balance = round.balance.add(betAmount);
-
-        LogBet(_roundId,msg.sender,_target);
-
-        autoResolvePreviousRounds();
-
+        LogBet(_roundId,msg.sender,_targets);
     }
 
-    function refund(uint _roundId) {
+    function withdraw(uint _roundId) {
 
         uint roundNo = roundById[_roundId];
         RoundStatus status = getRoundStatus(roundNo,now);
@@ -128,8 +132,27 @@ contract BettingonImpl is Bettingon {
             return;
         }
 
-        // otherwise, check for the winner
-        //
+        // We assume there that the winner is calling this function because
+        //   is the winner, and wants to retrieve their price
+
+        if(getRoundStatus(roundNo,now)==RoundStatus.PRICESET) {
+            
+            // The round is not yet resolved, so resolve it
+            // We have two different strategies here:
+            //
+            //   1) if there's less that XXX pending bets to process 
+            //      resolve them all
+            //   2) if there's more than XXX pending transactions
+            //      forceResolveRound should be called
+
+            uint pendingRounds = round.bets.length - round.lastCheckedBetNo + 1 ;
+
+            if (pendingRounds > 10) {
+                return;
+            }
+
+            resolveRoundNo(roundNo,pendingRounds);
+        }
 
         if(getRoundStatus(roundNo,now)!=RoundStatus.RESOLVED) {
             return;
@@ -158,10 +181,6 @@ contract BettingonImpl is Bettingon {
 
         round.balance = 0;   
 
-    }
-
-    function forceResolveRound(uint _roundId) {
-        resolveRound(roundById[_roundId], false);
     }
 
     function updateEthPrice(uint _milliDollarsPerEth) {
@@ -281,20 +300,13 @@ contract BettingonImpl is Bettingon {
         }
     }
 
-    function autoResolvePreviousRounds() internal {
-
-        RoundStatus status = getRoundStatus(resolvingRound,now);
-        
-        if (status == RoundStatus.PRICESET) {
-            resolveRound(resolvingRound,true);
-        } else if (status > RoundStatus.PRICESET) {
-            resolvingRound++;
-        }
-
+    function resolve(uint _roundId, uint _times) {
+        resolveRoundNo(roundById[_roundId],_times);
     }
 
-    function resolveRound(uint _roundNo, bool _onetime) internal {
-  
+    /// _times < 0 => gas limit , times > 0 just do it n times maximum
+    function resolveRoundNo(uint _roundNo, uint _times) internal {
+
         if (getRoundStatus(_roundNo,now)!=RoundStatus.PRICESET) {
             return;
         }
@@ -319,9 +331,14 @@ contract BettingonImpl is Bettingon {
           
            lastCheckedBetNo++;
 
-           if (_onetime || msg.gas < 100000 ) {
-               break;
+           bool noMoreGasToNextResolve   = ( _times==0 && msg.gas < 50000) ;
+           bool noMoreTimesToNextResolve = ( _times==1 );
+
+           if (noMoreGasToNextResolve || noMoreTimesToNextResolve) {
+              break;
            }
+
+           if (_times>1) _times--;
         }
 
         if (lastCheckedBetNo == round.bets.length) {
@@ -336,14 +353,14 @@ contract BettingonImpl is Bettingon {
     // web3 helpers ------------------------------------------------
 
     function getRoundById(uint _roundId, uint _now) external constant returns (
-        uint roundId,
-        uint roundNo,
+        uint        roundId,
+        uint        roundNo,
         RoundStatus status,
-        uint closeDate,
-        uint betCount,
-        uint target,
-        uint lastCheckedBetNo,
-        uint closestBetNo
+        uint        closeDate,
+        uint        betCount,
+        uint        target,
+        uint        lastCheckedBetNo,
+        uint        closestBetNo
     ) {
         if (_roundId == 0) {
             // determine the last round 
@@ -381,13 +398,13 @@ contract BettingonImpl is Bettingon {
     }
 
     function getRoundAt(uint _roundNo,uint _now) constant returns (
-        uint roundId,
+        uint        roundId,
         RoundStatus status,
-        uint closeDate,
-        uint betCount,
-        uint target,
-        uint lastCheckedBetNo,
-        uint closestBetNo
+        uint        closeDate,
+        uint        betCount,
+        uint        target,
+        uint        lastCheckedBetNo,
+        uint        closestBetNo
     ) {
         
         status = getRoundStatus(_roundNo, _now);

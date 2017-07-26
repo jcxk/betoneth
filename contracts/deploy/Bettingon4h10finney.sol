@@ -1,11 +1,11 @@
 pragma solidity ^0.4.11;
 
-import "./BettingonImpl.sol";
-import "./PriceUpdaterImpl.sol";
+import "../BettingonImpl.sol";
+import "../PriceUpdaterImpl.sol";
 
-contract BettingonDeploy is BettingonImpl {
+contract Bettingon4h10finney is BettingonImpl {
     
-   function BettingonDeploy(
+   function Bettingon4h10finney(
         address owner,
         address priceUpdaterAddress
     ) BettingonImpl(
@@ -31,16 +31,16 @@ contract BettingonDeploy is BettingonImpl {
 
 }
 
-contract Deployer {
+contract Bettingon4h10finneyDeploy {
     
-    PriceUpdaterImpl public pu;
-    BettingonDeploy  public bd;
+    PriceUpdaterImpl     public pu;
+    Bettingon4h10finney  public bon;
     
-    function Deployer() payable {
+    function Bettingon4h10finneyDeploy() payable {
         pu = new PriceUpdaterImpl(msg.sender);
-        bd = new BettingonDeploy(msg.sender,address(pu));
+        bon = new Bettingon4h10finney(msg.sender,address(pu));
         pu.initialize(
-            address(bd),
+            address(bon),
             "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
         );
         pu.transfer(msg.value);

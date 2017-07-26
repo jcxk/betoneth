@@ -7,12 +7,11 @@ contract Bettingon {
 
     /// events -------------------------------------------------
 
-    event Log(address v);
     event LogError(string error);
     event LogWinner(uint roundId, address winner);
     event LogWinnerPaid(uint roundId, address winner, uint amount, uint boat);
-    event LogBet(uint roundId, address account, uint target);
-    event LogBetOutdated(uint roundId, address account, uint target);
+    event LogBet(uint roundId, address account, uint[] targets);
+    event LogBetOutdated(uint roundId, address account, uint[] targets);
     event LogRefund(uint roundId, address account, uint amount);
     event LogPriceSet(uint roundId, uint target);
 
@@ -45,7 +44,7 @@ contract Bettingon {
     uint         public betCycleOffset;      // the offset of the betting cicle
     uint         public betMinRevealLength;  // minimum time for revealig target
     uint         public betMaxRevealLength;  // maxmimum time for revealig target
-    uint         public betAmount;
+    uint         public betAmount;           // bet amount in ethers
     uint         public platformFee;         // percentage that goes to sharePlatform
     address      public platformFeeAddress;  // address where foes the platfromFee
     uint         public boatFee;             // boat for the bet that matches the amount
@@ -58,7 +57,6 @@ contract Bettingon {
     Round[]   public        rounds;
     mapping   (uint=>uint)  roundById;
     uint      public        lastRevealedRound;
-    uint      public        resolvingRound;
     uint      public        boat;
     uint      public        stopAtRound;
 
@@ -80,9 +78,9 @@ contract Bettingon {
         FINISHED       // Bet paid
     }
 
-    function bet(uint _roundId, uint _target) payable;
-    function refund(uint _roundId);
-    function forceResolveRound(uint _roundId);
+    function bet(uint _roundId, uint[] _targets) payable;
+    function resolve(uint _roundNo, uint _times);    
+    function withdraw(uint _roundId);
     function updateEthPrice(uint _milliDollarsPerEth);
     function terminate(uint _stopAtRound);
 
