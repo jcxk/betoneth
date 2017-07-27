@@ -2,7 +2,7 @@ pragma solidity ^0.4.11;
 
 import "./Bettingon.sol";
 import "./PriceUpdater.sol";
-import "./OraclizeAPI04.sol";
+import "./lib/OraclizeAPI04.sol";
 
 contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
    

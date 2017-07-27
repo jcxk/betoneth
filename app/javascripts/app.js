@@ -6,7 +6,7 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import bettingon_artifacts from '../../build/contracts/BettingonDeploy.json'
+import bettingon_artifacts from '../../build/contracts/Bettingon.json'
 
 var Bettingon = contract(bettingon_artifacts);
 
@@ -31,7 +31,7 @@ var platformFee;
 var boatFee;
 var priceUpdater;
 
-bon = Bettingon.at("0x7B77eBD4760D80A12586097ec1527ff8367a067f")
+bon = Bettingon.at("0xbc3f60ff6152e03a2d3d9009595a9c667cfcee04")
 
 window.App = {
 
@@ -84,7 +84,6 @@ window.App = {
             bon.platformFee(),
             bon.boatFee(),
             bon.lastRevealedRound(),
-            bon.resolvingRound(),
             bon.boat(),
             bon.getNow(),
             bon.priceUpdater()
@@ -97,10 +96,10 @@ window.App = {
         betCycleOffset = _values[1].toNumber();
         betMinRevealLength = _values[2].toNumber();
         betMaxRevealLength = _values[3].toNumber();
-        betAmount = _values[4].toNumber();
+        betAmount = _values[4];
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
-        priceUpdater = _values[11];
+        priceUpdater = _values[10];
 
         let paramInfo = "";
 
@@ -108,33 +107,42 @@ window.App = {
         paramInfo+="\nbetCycleOffset="+betCycleOffset;
         paramInfo+="\nbetMinRevealLength="+betMinRevealLength;
         paramInfo+="\nbetMaxRevealLength="+betMaxRevealLength;
-        paramInfo+="\nbetAmount="+betAmount;
+        paramInfo+="\nbetAmount="+betAmount.toNumber();
         paramInfo+="\nplatformFee="+platformFee;
         paramInfo+="\nboatFee="+boatFee;
         paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
-        paramInfo+="\nresolvingRound="+_values[8].toNumber();
-        paramInfo+="\nboat="+_values[9].toNumber();
-        paramInfo+="\nnowhost, nowevm:"+now+","+_values[10].toNumber();
+        paramInfo+="\nboat="+_values[8].toNumber();
+        paramInfo+="\nnowhost, nowevm:"+now+","+_values[9].toNumber();
         paramInfo+="\npriceUpdater="+priceUpdater;
 
         console.log(paramInfo);
 
         let displayInfo = ""; 
-        displayInfo = "Bet amount      : "+self.toEth(_values[4])+" ETH"
-        displayInfo+= "\nBoat            : "+self.toEth(_values[9])+" ETH"
-        displayInfo+= "\nNew round each  : "+self.timediff2str(betCycleLength)
-        displayInfo+= "\nUTC time is     : "+new Date()
+        displayInfo += "Boat : " + self.toEth(_values[8])+" ETH"
+        displayInfo += "<br>Bet amount : " + self.toEth(_values[4])+" ETH"
+        displayInfo += "<br>New round each : " + self.timediff2str(betCycleLength)
+        displayInfo += "<br>UTC time is : " + new Date()
+        displayInfo += "<br>Deployed at : " + self.formatAddr(bon.address)+", updater is in "
+          + self.formatAddr(priceUpdater)        
+        displayInfo += "<br><br>"
 
-        document.getElementById("paramInfo").innerHTML = "<pre>"+displayInfo+"</pre>"
-
-        if (priceUpdater!=bon.address) {
-           document.getElementById("setprice").style = "display: none;" 
+        document.getElementById("paramInfo").innerHTML = displayInfo
+        if (priceUpdater==bon.address) {
+           document.getElementById("setprice").style = "display:block" 
         }
         self.setStatus("Loaded",false);
 
         self.refresh();
       })
     })
+  },
+
+  formatAddr : function (addr) {
+    return "<a href=https://etherscan.io/address/"+addr+" target="+addr+">"+addr.substring(2, 9)+"</a>";
+  },
+
+  formatTrn : function (txn) {
+    return "<a href=https://etherscan.io/tx/"+txn+" target="+txn+">"+txn.substring(2, 11)+"</a>";
   },
 
   getTransactionReceiptMined : function (txnHash, interval) {
@@ -174,7 +182,7 @@ window.App = {
 
   setStatus: function(message,working) {
     var status = document.getElementById("status");
-    if (working) message+="<img src='http://keegansirishpub.net/wp-content/themes/octane-bootstrap/images/loader.gif'>"
+    if (working) message+="<img height=40 width=40 src='https://s-media-cache-ak0.pinimg.com/originals/d9/93/3c/d9933c4e2c272f33b74ef18cdf11a7d5.gif'>"
     status.innerHTML = message;
   },
 
@@ -208,7 +216,7 @@ window.App = {
 
     return bon.getRoundAt(roundNo, web3.toBigNumber(now))
     .then(function(_values) {
-      info = self.roundInfoFromValues(roundNo,_values,now);
+      info = "<b>"+self.roundInfoFromValues(roundNo,_values,now)+"</b>"
       let bets = []
       for (let betNo = 0; betNo < _values[3].toNumber(); betNo++) { 
         bets.push(bon.getBetAt(roundNo,betNo));
@@ -216,9 +224,9 @@ window.App = {
       return Promise.all(bets)
     }).then(function(_bets) {
       for (let betNo = 0; betNo < _bets.length; betNo++) { 
-        info += "\n--->" + _bets[betNo][0] +" bets for "+_bets[betNo][1].toNumber()/1000+" USD/ETH"
+        info += "<br>&#x2605;" + self.formatAddr(_bets[betNo][0]) +" bets for "+_bets[betNo][1].toNumber()/1000+" USD/ETH"
       } 
-      info+="\n\n"
+      info+="<br><br>"
       return new Promise(function (resolve, reject) {
         resolve(info);
       });
@@ -260,32 +268,37 @@ window.App = {
 
       let info ="ROUND #"+roundId
       info += " "+statuses[status];
-      info += " "+betCount+" bets ";
+      info += " | "+betCount+" bets |";
 
       switch (status) {
         case FUTURE :
         case OPEN :
-          info += " - "+self.timediff2str(closeDate-now)+" to close."
-          info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+          info += "&nbsp;"+self.timediff2str(closeDate-now)+" to close."
+          info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));         
+          info += "&nbsp;<button id='bid' onclick='App.uiBid("+roundId+")'> Bid </button>"
           break;
         case CLOSED :
-           info += " - "+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize sets the price."
-           info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+           info += "&nbsp;"+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize starts set the price."
+           info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICEWAIT :
-           info += " - "+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
-           info += "\nbets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
+           info += "&nbsp;"+self.timediff2str(closeDate+betMaxRevealLength-now)+" deadline to oraclize sets the price."
+           info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));
            break;
         case PRICESET :
-           info += " - target="+target+" "+lastCheckedBetNo+"/"+betCount+" resolved."
+           info += "&nbsp;price is "+target+" USD/ETH ["+lastCheckedBetNo+"/"+betCount+" resolved]"
+           info += "&nbsp;<button onclick='App.uiResolve("+roundId+")'> Resolve </button>"
+           info += "&nbsp;<button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case PRICELOST :
+           info += "&nbsp;<button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case RESOLVED :
-           info += " - target="+target+" winner is "+closestBetNo
+           info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
+           info += "<br><button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case FINISHED :
-           info += " - target="+target+" winner is "+closestBetNo
+           info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
            break;
       }
       return info;    
@@ -314,7 +327,7 @@ window.App = {
       for (let roundNo = 0; roundNo < _infos.length; roundNo++) { 
         info+=_infos[roundNo]
       } 
-      document.getElementById("info").innerHTML = "<pre>"+info+"</pre>";
+      document.getElementById("info").innerHTML = info;
       self.setStatus("",false);    
     })
     .catch(function(e) {
@@ -323,13 +336,15 @@ window.App = {
     });
   },
 
-  dotransaction : function (_promise) {
+  doTransaction : function (_promise) {
 
     var self = this;
 
-    self.setStatus("Waiting network agrees with operation...",true);
+    self.setStatus("Waiting network agrees with operation",true);
+
     _promise
     .then ( (_tx) => {
+      self.setStatus("Waiting network agrees with operation "+self.formatTrn(_tx.tx)+"...",true);
       console.log("tx "+_tx.tx);
       return self.getTransactionReceiptMined(_tx.tx);     
     }).then ( ( _resolve, _reject ) => {
@@ -342,23 +357,19 @@ window.App = {
 
   },
 
-  uiBid : function() {
+  uiBid : function(roundId) {
 
     var self = this;
 
-    const now = Math.floor(Date.now() / 1000);
+    let targetsStr = prompt("Your bids? (e.g. 215.500,199.2)")
+    if (targetsStr === null) {
+      return; 
+    }
 
-    bon.getRoundById(0,web3.toBigNumber(now))
-    .then(function(_values) {
-      let targetStr = prompt("Your bid? (e.g. 215.500)")
-      if (targetStr === null) {
-        return; 
-      }
-      let target=Math.round(parseFloat(targetStr)*1000)
-      self.dotransaction(
-        bon.bet(_values[0],target,{from: account, value: betAmount })
-      );
-    })
+    let targets=targetsStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
+    self.doTransaction(
+      bon.bet(roundId,targets,{from: account, value: betAmount.mul(targets.length) })
+    );
 
   },
 
@@ -370,36 +381,28 @@ window.App = {
     if (target === null) {
       return; 
     }
-    self.dotransaction(
+    self.doTransaction(
       bon.__updateEthPrice(target,"",{from: account})
     );
 
   },
 
-  uiForceResolve : function() {
+  uiResolve : function(roundId) {
 
     var self = this;
 
-    let roundId = prompt("Round to force resolve:")
-    if (roundId === null) {
-      return; 
-    }
-    self.dotransaction(
-      bon.forceResolveRound(roundId,{from: account})
+    self.doTransaction(
+      bon.resolve(roundId,999,{from: account})
     );
 
   },
 
-  uiRefund : function() {
+  uiWithdraw : function(roundId) {
 
     var self = this;
 
-    let roundId = prompt("Round to refund:")
-    if (roundId === null) {
-      return; 
-    }
-    self.dotransaction(
-      bon.refund(roundId,{from: account})
+    self.doTransaction(
+      bon.withdraw(roundId,{from: account})
     );
 
   }

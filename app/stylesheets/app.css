@@ -1,6 +1,6 @@
 body {
-  margin-left: 25%;
-  margin-right: 25%;
+  margin-left: 15%;
+  margin-right: 15%;
   font-family: "Open Sans", sans-serif;
 }
 
@@ -16,8 +16,18 @@ input {
 }
 
 button {
-  font-size: 16px;
-  padding: 5px;
+  border-radius: 12px;
+  border-size: 1px;
+  background: #D0A9F5;
+  padding: 3px; 
+  color: #FFF;
+  border-color: #D0A9F5;
+  font-size: 12px;
+}
+
+button:hover {
+  background-color: #4C0B5F;
+  border-color: #4C0B5F;
 }
 
 h1, h2 {
@@ -37,6 +47,12 @@ h3 {
   color: #AAA;
   font-size: 24px;
 }
+
+a {
+  color: black;
+}
+
+
 
 .black {
   color: black;

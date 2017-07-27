@@ -8,7 +8,7 @@
 const assertJump = require("./helpers/assertJump.js");
 const timeTravel = require("./helpers/timeTravel.js");
 
-const BettingonTest = artifacts.require("../contracts/BettingonTest.sol");
+const BettingonTest = artifacts.require("../contracts/deploy/BettingonTest.sol");
 
 contract("Basic unit tests", (accounts) => {
 
@@ -76,23 +76,42 @@ contract("Basic unit tests", (accounts) => {
      });
 
     it("a bet is logged", async () => {
-
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
-        const trn = await bon.bet(roundId, 260000,  {from : user1 , value : betValue})
+        const trn = await bon.bet(roundId, [260000],  {from : user1 , value : betValue})
+
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogBet");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
         assert.equal(trn.logs[ 0 ].args.account, user1);
-        assert.equal(trn.logs[ 0 ].args.target.toNumber(), 260000);
+        assert.equal(trn.logs[ 0 ].args.targets.length, 1);
+        assert.equal(trn.logs[ 0 ].args.targets[0].toNumber(), 260000);
     });
+
+    it("a double bet is logged", async () => {
+        const betValue = await bon.betAmount()
+        const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
+        const trn = await bon.bet(roundId, [260000,260001],  {from : user1 , value : betValue.mul(2)})
+
+        assert.equal(trn.logs.length, 1);
+        assert.equal(trn.logs[ 0 ].event, "LogBet");
+        assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
+        assert.equal(trn.logs[ 0 ].args.account, user1);
+        assert.equal(trn.logs[ 0 ].args.targets.length, 2);
+        assert.equal(trn.logs[ 0 ].args.targets[0].toNumber(), 260000);
+        assert.equal(trn.logs[ 0 ].args.targets[1].toNumber(), 260001);
+
+        const [,,,,betCount,,] = await bon.getRoundById(0,VMTIME)
+        assert.equal(betCount.toNumber(), 2);
+     });
+
 
     it("target reveal is logged", async () => {
 
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId,260000,  {from : user1 , value : betValue})
+        await bon.bet(roundId,[260000],  {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         const trn = await bon.__updateEthPrice(250000)  //   and set to 250$/h
@@ -108,35 +127,33 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        const trn = await bon.bet(roundId.toNumber()+1,260000,  {from : user1 , value : betValue})
+        const trn = await bon.bet(roundId.toNumber()+1,[260000],  {from : user1 , value : betValue})
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogBetOutdated");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber()+1);
         assert.equal(trn.logs[ 0 ].args.account, user1);
-        assert.equal(trn.logs[ 0 ].args.target.toNumber(), 260000);
-
+        assert.equal(trn.logs[ 0 ].args.targets.length, 1);
+        assert.equal(trn.logs[ 0 ].args.targets[0].toNumber(), 260000);
     });
 
-
-
-    it("one bet, one win, no fees, forcing resolve logs generated", async () => {
+    it("one bet, one win, no fees, logs generated", async () => {
 
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId, 260000, {from : user1 , value : betValue})
+        await bon.bet(roundId, [260000], {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
 
-        let trn = await bon.forceResolveRound(roundId)
+        let trn = await bon.resolve(roundId,1)
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogWinner");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
         assert.equal(trn.logs[ 0 ].args.winner, user1);
 
         const balance = web3.eth.getBalance(user1);
-        trn = await bon.refund(roundId, { from: user1 } )
+        trn = await bon.withdraw(roundId, { from: user1 } )
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogRefund");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
@@ -148,53 +165,74 @@ contract("Basic unit tests", (accounts) => {
         assert.equal(web3.eth.getBalance(user1).toNumber(), expectedBalance.toNumber());
     });
 
-    it("two bets, one win, forcing resolve", async () => {
+    it("three bets, one win", async () => {
 
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId,260000, {from : user1 , value : betValue})
-        await bon.bet(roundId,245000, {from : user2 , value : betValue})
+        await bon.bet(roundId,[260000], {from : user1 , value : betValue})
+        await bon.bet(roundId,[270000,245000], {from : user2 , value : betValue.mul(2)})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
 
-        const trn = await bon.forceResolveRound(roundId)
+        const trn = await bon.resolve(roundId,3)
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogWinner");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
         assert.equal(trn.logs[ 0 ].args.winner, user2);
-
     });
+
+    it("withdraw resolves automatically", async () => {
+
+        const betValue = await bon.betAmount()
+        const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
+
+        await bon.bet(roundId,[260000], {from : user1 , value : betValue})
+        await bon.bet(roundId,[245000], {from : user2 , value : betValue})
+
+        await timeTravel(betCycleLength+betMinRevealLength+1);
+        await bon.__updateEthPrice(250000)  //   and set to 250$/h
+
+        const trn = await bon.withdraw(roundId, { from: user2 })
+        assert.equal(trn.logs.length, 2);
+        assert.equal(trn.logs[ 0 ].event, "LogWinner");
+        assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
+        assert.equal(trn.logs[ 0 ].args.winner, user2);
+        assert.equal(trn.logs[ 1 ].event, "LogWinnerPaid");
+        assert.equal(trn.logs[ 1 ].args.roundId.toNumber(), roundId.toNumber());
+        assert.equal(trn.logs[ 1 ].args.winner, user2);
+    });
+
     it("get boat on exact bet matching", async () => {
 
         let betValue1 = await bon.betAmount()
         const [roundId1,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId1, 260000, {from : user1 , value : betValue1})
-        await bon.bet(roundId1, 270000, {from : user2 , value : betValue1})
+        await bon.bet(roundId1, [260000], {from : user1 , value : betValue1})
+        await bon.bet(roundId1, [270000], {from : user2 , value : betValue1})
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(250000)  //   and set to 250$/h
-        await bon.forceResolveRound(roundId1)
-        await bon.refund(roundId1, { from: user1 } )
+        await bon.resolve(roundId1,2)
+        await bon.withdraw(roundId1, { from: user1 } )
 
         let boat = percent(betValue1.mul(2).toNumber(),boatFee)
         assert.equal((await bon.boat()).toNumber(),boat);
 
         let betValue2 = await bon.betAmount()
         const [roundId2,,,,,,] = await bon.getRoundById(0,VMTIME)
-        await bon.bet(roundId2, 270000, {from : user1 , value : betValue2})
-        await bon.bet(roundId2, 260000, {from : user2 , value : betValue2})
+        await bon.bet(roundId2, [270000], {from : user1 , value : betValue2})
+        await bon.bet(roundId2, [260000], {from : user2 , value : betValue2})
         await timeTravel(betCycleLength+betMinRevealLength+1);
         await bon.__updateEthPrice(270000)  //   and set to 270$/h
-        await bon.forceResolveRound(roundId2)
+        await bon.resolve(roundId2,2)
         
         const fees = percent(betValue2.mul(2).toNumber(),platformFee+boatFee)
         const prize = betValue2.mul(2).toNumber() - fees
 
         boat = boat + percent(betValue2.mul(2).toNumber(),boatFee)
 
-        const trn = await bon.refund(roundId2, { from: user1 } )
+        const trn = await bon.withdraw(roundId2, { from: user1 } )
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogWinnerPaid");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId2.toNumber());
@@ -213,8 +251,8 @@ contract("Basic unit tests", (accounts) => {
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), OPEN);
         assert.equal((await bon.getRoundAt(roundNo+1,VMTIME))[1].toNumber(), FUTURE);
 
-        await bon.bet(roundId, 260000, {from : user1 , value : betValue})
-        await bon.bet(roundId, 270000, {from : user2 , value : betValue})
+        await bon.bet(roundId, [260000], {from : user1 , value : betValue})
+        await bon.bet(roundId, [270000], {from : user2 , value : betValue})
 
         await timeTravel(betCycleLength+1); // Wait next round
 
@@ -228,42 +266,22 @@ contract("Basic unit tests", (accounts) => {
         await bon.__updateEthPrice(250000) 
 
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), PRICESET);
-        await bon.forceResolveRound(roundId)
+        await bon.resolve(roundId,1)
+        assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), PRICESET);
+        await bon.resolve(roundId,1)
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), RESOLVED);
 
-        await bon.refund(roundId, { from: user1 } )
+        await bon.withdraw(roundId, { from: user1 } )
 
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), FINISHED);
 
-    });
-
-    it("two bets in two rounds should autoresolve", async () => {
-        
-        const betValue1 = await bon.betAmount()
-        const [roundId1,,,,,,] = await bon.getRoundById(0,VMTIME)
-
-        await bon.bet(roundId1, 260000, {from : user1 , value : betValue1})
-        await bon.bet(roundId1, 245000, {from : user2 , value : betValue1})
-
-        await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(250000)  //   and set to 250$/h
-
-        const betValue2 = await bon.betAmount()
-        const [roundId2,,,,,,] = await bon.getRoundById(0,VMTIME)
-
-        await bon.bet(roundId2, 260000, {from : user1 , value : betValue2})
-        const trn = await bon.bet(roundId2, 245000, {from : user2 , value : betValue2})
-        assert.equal(trn.logs.length, 2);
-        assert.equal(trn.logs[ 1 ].event, "LogWinner");
-        assert.equal(trn.logs[ 1 ].args.roundId.toNumber(), roundId1.toNumber());
-        assert.equal(trn.logs[ 1 ].args.winner, user2);
     });
 
     it("updateprice before resolution date does not work", async () => {
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId, 260000, {from : user1 , value : betValue})
+        await bon.bet(roundId, [260000], {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength-60); 
         await bon.__updateEthPrice(250000)  // and set to 250$/h
@@ -276,9 +294,9 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId, 260000, {from : user1 , value : betValue})
+        await bon.bet(roundId, [260000], {from : user1 , value : betValue})
         try {
-            await bon.bet(roundId, 260000, {from : user2 , value : betValue})   
+            await bon.bet(roundId, [260000], {from : user2 , value : betValue})   
         } catch (error) {
             return assertJump(error);
         }
@@ -292,7 +310,7 @@ contract("Basic unit tests", (accounts) => {
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
         try {
-            await bon.bet(roundId, 260000, {from : user1 , value : betValue.minus(1)})
+            await bon.bet(roundId, [260000], {from : user1 , value : betValue.minus(1)})
         } catch (error) {
             return assertJump(error);
         }
@@ -307,7 +325,7 @@ contract("Basic unit tests", (accounts) => {
 
         const balance = web3.eth.getBalance(user1);
 
-        const trn = await bon.bet(roundId, 260000, {from : user1 , value : betValue.plus(1)})
+        const trn = await bon.bet(roundId, [260000], {from : user1 , value : betValue.plus(1)})
         const tx = web3.eth.getTransaction(trn.tx);
         const txPrice = web3.toBigNumber(trn.receipt.gasUsed).mul(tx.gasPrice);
 
@@ -321,14 +339,14 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId, 260000,  {from : user1 , value : betValue})
-        await bon.bet(roundId, 270000,  {from : user2 , value : betValue})
-        let trn = await bon.refund(roundId, {from : user1 })
+        await bon.bet(roundId, [260000],  {from : user1 , value : betValue})
+        await bon.bet(roundId, [270000],  {from : user2 , value : betValue})
+        let trn = await bon.withdraw(roundId, {from : user1 })
         assert.equal(trn.logs.length, 0);
 
         await timeTravel(betCycleLength+betMinRevealLength);
 
-        trn = await bon.refund(roundId, {from : user1 })
+        trn = await bon.withdraw(roundId, {from : user1 })
         assert.equal(trn.logs.length, 0);
     });
 
@@ -337,18 +355,18 @@ contract("Basic unit tests", (accounts) => {
         const betValue = await bon.betAmount()
         const [roundId,,,,,,] = await bon.getRoundById(0,VMTIME)
 
-        await bon.bet(roundId, 260000,  {from : user1 , value : betValue})
-        await bon.bet(roundId, 260001,  {from : user1 , value : betValue})
-        await bon.bet(roundId, 260002,  {from : user2 , value : betValue})
+        await bon.bet(roundId, [260000],  {from : user1 , value : betValue})
+        await bon.bet(roundId, [260001],  {from : user1 , value : betValue})
+        await bon.bet(roundId, [260002],  {from : user2 , value : betValue})
 
-        let trn = await bon.refund(roundId, {from : user1 })
+        let trn = await bon.withdraw(roundId, {from : user1 })
         assert.equal(trn.logs.length, 0);
 
         await timeTravel(betCycleLength+betMaxRevealLength+1);
 
         assert.equal((await bon.getRoundById(roundId,VMTIME))[2].toNumber(), PRICELOST);
 
-        trn = await bon.refund(roundId, {from : user1 })
+        trn = await bon.withdraw(roundId, {from : user1 })
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogRefund");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
