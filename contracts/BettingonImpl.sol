@@ -45,11 +45,14 @@ contract BettingonImpl is Bettingon {
 
     function bet(uint _roundId, uint[] _targets) payable {
 
+        assert(_targets.length > 0);
+
         // -- check that the bet is not outdated due network congestion
         var (roundId,) = thisRoundInfo(now);
         
         if (roundId!=_roundId) {
             LogBetOutdated(_roundId,msg.sender,_targets);
+            msg.sender.transfer(msg.value);
             return;
         }
 
@@ -93,6 +96,7 @@ contract BettingonImpl is Bettingon {
 
         }
         LogBet(_roundId,msg.sender,_targets);
+        
     }
 
     function withdraw(uint _roundId) {
@@ -185,7 +189,7 @@ contract BettingonImpl is Bettingon {
 
     function updateEthPrice(uint _milliDollarsPerEth) {
         
-        assert(address(priceUpdater)==0 || address(priceUpdater)==msg.sender);
+        assert(address(priceUpdater)==msg.sender || address(priceUpdater)==address(this));
 
         while (lastRevealedRound < rounds.length ) {
 
@@ -294,9 +298,7 @@ contract BettingonImpl is Bettingon {
 
             roundById[roundId] = rounds.length-1;
             
-            if (address(priceUpdater) != 0 ) {
-                priceUpdater.schedule(closeDate-now+betMinRevealLength);
-            }
+            priceUpdater.schedule(closeDate-now+betMinRevealLength);
         }
     }
 

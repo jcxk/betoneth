@@ -6,7 +6,7 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import bettingon_artifacts from '../../build/contracts/BettingonDeploy.json'
+import bettingon_artifacts from '../../build/contracts/Bettingon.json'
 
 var Bettingon = contract(bettingon_artifacts);
 
@@ -31,7 +31,7 @@ var platformFee;
 var boatFee;
 var priceUpdater;
 
-bon = Bettingon.at("0x7B77eBD4760D80A12586097ec1527ff8367a067f")
+bon = Bettingon.at("0xbc3f60ff6152e03a2d3d9009595a9c667cfcee04")
 
 window.App = {
 
@@ -84,7 +84,6 @@ window.App = {
             bon.platformFee(),
             bon.boatFee(),
             bon.lastRevealedRound(),
-            bon.resolvingRound(),
             bon.boat(),
             bon.getNow(),
             bon.priceUpdater()
@@ -97,10 +96,10 @@ window.App = {
         betCycleOffset = _values[1].toNumber();
         betMinRevealLength = _values[2].toNumber();
         betMaxRevealLength = _values[3].toNumber();
-        betAmount = _values[4].toNumber();
+        betAmount = _values[4];
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
-        priceUpdater = _values[11];
+        priceUpdater = _values[10];
 
         let paramInfo = "";
 
@@ -108,19 +107,18 @@ window.App = {
         paramInfo+="\nbetCycleOffset="+betCycleOffset;
         paramInfo+="\nbetMinRevealLength="+betMinRevealLength;
         paramInfo+="\nbetMaxRevealLength="+betMaxRevealLength;
-        paramInfo+="\nbetAmount="+betAmount;
+        paramInfo+="\nbetAmount="+betAmount.toNumber();
         paramInfo+="\nplatformFee="+platformFee;
         paramInfo+="\nboatFee="+boatFee;
         paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
-        paramInfo+="\nresolvingRound="+_values[8].toNumber();
-        paramInfo+="\nboat="+_values[9].toNumber();
-        paramInfo+="\nnowhost, nowevm:"+now+","+_values[10].toNumber();
+        paramInfo+="\nboat="+_values[8].toNumber();
+        paramInfo+="\nnowhost, nowevm:"+now+","+_values[9].toNumber();
         paramInfo+="\npriceUpdater="+priceUpdater;
 
         console.log(paramInfo);
 
         let displayInfo = ""; 
-        displayInfo += "Boat : " + self.toEth(_values[9])+" ETH"
+        displayInfo += "Boat : " + self.toEth(_values[8])+" ETH"
         displayInfo += "<br>Bet amount : " + self.toEth(_values[4])+" ETH"
         displayInfo += "<br>New round each : " + self.timediff2str(betCycleLength)
         displayInfo += "<br>UTC time is : " + new Date()
@@ -289,15 +287,15 @@ window.App = {
            break;
         case PRICESET :
            info += "&nbsp;price is "+target+" USD/ETH ["+lastCheckedBetNo+"/"+betCount+" resolved]"
-           info += "&nbsp;<button onclick='App.uiForceResolve("+roundId+")'> Resolve </button>"
-           info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
+           info += "&nbsp;<button onclick='App.uiResolve("+roundId+")'> Resolve </button>"
+           info += "&nbsp;<button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case PRICELOST :
-           info += "&nbsp;<button onclick='App.uiRefund("+roundId+")'> Refund </button>"
+           info += "&nbsp;<button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case RESOLVED :
            info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
-           info += "<br><button onclick='App.uiRefund("+roundId+")'> Refund </button>"
+           info += "<br><button onclick='App.uiWithdraw("+roundId+")'> Withdraw </button>"
            break;
         case FINISHED :
            info += "&nbsp;price is "+target+" USD/ETH | winner bet is "+(closestBetNo+1)
@@ -363,14 +361,14 @@ window.App = {
 
     var self = this;
 
-    let targetStr = prompt("Your bid? (e.g. 215.500)")
-    if (targetStr === null) {
+    let targetsStr = prompt("Your bids? (e.g. 215.500,199.2)")
+    if (targetsStr === null) {
       return; 
     }
 
-    let target=Math.round(parseFloat(targetStr)*1000)
+    let targets=targetsStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
     self.doTransaction(
-      bon.bet(roundId,target,{from: account, value: betAmount })
+      bon.bet(roundId,targets,{from: account, value: betAmount.mul(targets.length) })
     );
 
   },
@@ -389,22 +387,22 @@ window.App = {
 
   },
 
-  uiForceResolve : function(roundId) {
+  uiResolve : function(roundId) {
 
     var self = this;
 
     self.doTransaction(
-      bon.forceResolveRound(roundId,{from: account})
+      bon.resolve(roundId,999,{from: account})
     );
 
   },
 
-  uiRefund : function(roundId) {
+  uiWithdraw : function(roundId) {
 
     var self = this;
 
     self.doTransaction(
-      bon.refund(roundId,{from: account})
+      bon.withdraw(roundId,{from: account})
     );
 
   }

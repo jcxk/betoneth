@@ -6,10 +6,10 @@ module.exports = function(deployer) {
 
   deployer.deploy(
   	 BettingonTest,
-  	 60,   // betCycleLength
+  	 120,   // betCycleLength
      0,    // betCycleOffset
      10,   // betMinReveaLength
-     60,   // betMaxReveaLength
+     110,   // betMaxReveaLength
      web3.toBigNumber("10000000000000000"), // _betAmount
      1,   // platformFee
   	 "0xdead", // platformFeeAddress
