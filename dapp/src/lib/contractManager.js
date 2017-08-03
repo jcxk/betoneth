@@ -42,8 +42,7 @@ const contractBasePath = '../../../build/contracts/';
 
 class contractManager {
 
-  constructor (web3) {
-    let env = (web3.networkId == 1) ? 'production' : 'development';
+  constructor (web3, env) {
     this.web3 = web3;
     const contractName = (env === 'development') ? 'BettingonTest':'Bettingon';
     let Bettingon = contract(

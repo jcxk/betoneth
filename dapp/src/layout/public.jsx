@@ -6,7 +6,7 @@ import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 import Drawer from 'material-ui/Drawer';
 import { NavLink } from 'react-router-dom'
 
-import { Container, Divider,Grid, Header, Image, List, Menu, Dropdown, Button, Table } from 'semantic-ui-react';
+import { Container, Divider,Grid, Header, Image, Segment,List, Menu, Dropdown, Button, Table } from 'semantic-ui-react';
 
 class PublicLayout extends Component {
   constructor(props) {
@@ -18,6 +18,18 @@ class PublicLayout extends Component {
 
   render() {
     const { activeItem } = this.state;
+    let winners = _.times(6, (index) => {
+      return(
+        <Table.Row>
+          <Table.Cell>
+            <Header as='h4'>
+              <Header.Content>{index}.MRX</Header.Content>
+            </Header>
+          </Table.Cell>
+          <Table.Cell>{_.random(1200)}</Table.Cell>
+        </Table.Row>
+    )});
+
     return (
       <div>
         <header>
@@ -45,8 +57,9 @@ class PublicLayout extends Component {
                 <Slot name="main" />
             </Grid.Column>
             <Grid.Column  stretched floated="right" width={5} >
-              <Grid verticalAlign="top" stretched>
-                  <Grid.Row>
+              <Grid  stretched>
+                  <Grid.Row >
+                    <Container textAling="center">
                       <h1>Ranking</h1>
                       <Table basic='very'>
                         <Table.Header>
@@ -56,22 +69,18 @@ class PublicLayout extends Component {
                           </Table.Row>
                         </Table.Header>
                         <Table.Body>
-
-                          <Table.Row>
-                            <Table.Cell>
-                              <Header as='h4'>
-                               <Header.Content>1.MRX</Header.Content>
-                              </Header>
-                            </Table.Cell>
-                            <Table.Cell>22</Table.Cell>
-                          </Table.Row>
-
+                          {winners}
                         </Table.Body>
                       </Table>
+                    </Container>
                   </Grid.Row>
-                  <Grid.Row>
-                    <h1>Chat</h1>
-                  </Grid.Row>
+                <Grid.Row >
+                  <Image centered height="250" width="300" src="http://digitalizedwarfare.com/wp-content/uploads/2017/01/poloniex-trollbox.png" />
+                </Grid.Row>
+                <Grid.Row >
+                  <Image centered height="250" width="300" src="http://www.betterfinanceguru.com/wp-content/uploads/2017/05/Ethereum-Post-Image-featured.png" />
+                </Grid.Row>
+
               </Grid>
             </Grid.Column>
         </Grid>
