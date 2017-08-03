@@ -1,5 +1,5 @@
 import {default as contract} from 'truffle-contract';
-import bettingon_artifacts from '../../../build/contracts/BettingonDeploy.json';
+
 import * as _ from 'lodash';
 import moment from 'moment';
 
@@ -12,7 +12,7 @@ let contractConfig = [
   'platformFee',
   'boatFee',
   'lastRevealedRound',
-  'resolvingRound',
+//  'resolvingRound',
   'boat',
   'priceUpdater'
 ];
@@ -38,13 +38,18 @@ const statuses = [
   'RESOLVED',
   'FINISHED'
 ]
+const contractBasePath = '../../../build/contracts/';
 
 class contractManager {
 
-  constructor (web3, env) {
-    console.log(web3.currentProvider);
+  constructor (web3) {
+    let env = (web3.networkId == 1) ? 'production' : 'development';
     this.web3 = web3;
-    let Bettingon = contract(bettingon_artifacts);
+    const contractName = (env === 'development') ? 'BettingonTest':'Bettingon';
+    let Bettingon = contract(
+      require ("../../../build/contracts/"+contractName+".json")
+    );
+
     Bettingon.setProvider(web3.currentProvider);
     this.contractPromise = (env === 'production') ?
       Promise.resolve(Bettingon.at(mainNetAddress)) : Bettingon.deployed();
@@ -58,8 +63,14 @@ class contractManager {
     this.contract = await this.getContract();
     this.abiNames = _.map(this.contract.abi, 'name');
     let configVarsPromises = contractConfig.map((item) => {
+      try {
       return this.contract[item]()
+      } catch(e) {
+        console.log(item, 'getter error');
+      }
     });
+
+
     this.config = await Promise.all(configVarsPromises).then((_values) => {
       return Object.assign({},
         ...contractConfig.map(
@@ -69,7 +80,7 @@ class contractManager {
         )
       );
     });
-
+    this.config['address'] = this.contract.address;
 
   }
 
@@ -136,9 +147,9 @@ class contractManager {
         await this.getRoundFullInfo(roundNo, Date.now())
       )
     }
-    console.log(lastRound, roundStart);
+    //console.log(lastRound, roundStart);
     //return _.keyBy(rounds, 'roundId');
-    console.log(rounds);
+    //console.log(rounds);
     return rounds;
   }
 
@@ -165,76 +176,74 @@ class contractManager {
     return response;
   }
 
-  async uiBid (targetValue) {
 
-    const now = Math.floor(Date.now() / 1000);
-    return await this.contract.getRoundById(0,this.web3.toBigNumber(now))
-      .then( (_values) => {
-        let target=Math.round(parseFloat(targetValue)*1000);
-        return this.dotransaction(
+  getNow() {
+    return this.web3.toBigNumber(
+      Math.floor(Date.now() / 1000)
+    );
+  }
+
+  async getCurrentRoundId() {
+    let roundArr = await this.contract.getRoundById(0,this.getNow());
+    return (roundArr.length > 0) ? roundArr[0] : false;
+  }
+
+
+
+  async uiBid (targetStr) {
+    let currentRoundId = await this.getCurrentRoundId();
+    let targets=targetStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
+    return await this.doTransaction(
           this.contract.bet(
-            _values[0],
-            target,
-            { from: this.account, value: this.config.betAmount.toNumber(), gas: 500000 }
+            currentRoundId,
+            targets,
+            { from: this.account, value: this.config.betAmount.mul(targets.length), gas: 500000 }
             )
         );
-      })
 
+  }
+
+  watchEvents() {
+    this.contract.allEvents({fromBlock: 0, toBlock: 'latest'}).watch( (error, result) => {
+       console.log(error != undefined ? error: { event: result.event, args: result.args } ,'event');
+    });
   }
 
   async setPrice (price) {
     console.log(price);
-    return await this.dotransaction(
-      this.contract.updateEthPrice(price,{from: this.account})
+    return await this.doTransaction(
+      this.contract.updateEthPrice(price,{from: this.account, gas: 500000})
     );
 
   }
 
   async forceResolve (roundId) {
-    return this.dotransaction(
-       this.contract.forceResolveRound(roundId,{from: this.account})
+
+    return await this.doTransaction(
+       this.contract.resolve(roundId,999,{from: this.account})
     );
 
   }
 
-  async refund (roundId) {
+  async withdraw (roundId) {
 
-    return this.dotransaction(
-      this.contract.refund(roundId,{from: this.account})
+    return await this.doTransaction(
+      this.contract.withdraw(roundId,{from: this.account, gas: 500000})
     );
 
   }
 
-  async dotransaction (_promise) {
+  getTransactionReceiptMined(txnHash, interval = 500) {
 
-    return await _promise
-      .then ( (_tx) => {
-        console.log("tx "+_tx.tx);
-        return this.getTransactionReceiptMined(_tx.tx);
-      }).then ( ( _resolve, _reject ) => {
-      console.log('transaction success');
-      return true;
-    }).catch ( (e) => {
-      console.log(e, 'transaction failed');
-      return false;
-    })
-
-  }
-
-  getTransactionReceiptMined (txnHash, interval) {
-    var self = this;
-
-    var transactionReceiptAsync;
-    interval = interval ? interval : 500;
-    transactionReceiptAsync = (txnHash, resolve, reject) => {
+    let transactionReceiptAsync = (txnHash, resolve, reject) => {
       try {
-        this.web3.eth.getTransactionReceipt(txnHash, (_,receipt) => {
+        this.web3.eth.getTransactionReceipt(txnHash,
+          (_,receipt) => {
           if (receipt == null || receipt.blockNumber == null ) {
             setTimeout(function () {
               transactionReceiptAsync(txnHash, resolve, reject);
             }, interval);
           } else {
-            console.log(receipt);
             resolve(receipt);
           }
         });
@@ -243,9 +252,11 @@ class contractManager {
       }
     };
 
+
     if (Array.isArray(txnHash)) {
       var promises = [];
       txnHash.forEach(function (oneTxHash) {
+        console.log(oneTxHash,'hash');
         promises.push(self.getTransactionReceiptMined(oneTxHash, interval));
       });
       return Promise.all(promises);
@@ -255,6 +266,19 @@ class contractManager {
       });
     }
   }
+
+
+  async doTransaction(_promise) {
+    return _promise
+      .then ( (_tx) => {
+        //console.log("tx "+_tx.tx);
+        return this.getTransactionReceiptMined(_tx.tx);
+      }).then ( ( _resolve, _reject ) => {
+        console.log('success tx');
+    });
+
+  }
+
 
   timediff2str(diff) {
 

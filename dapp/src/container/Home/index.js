@@ -1,38 +1,29 @@
-import React from 'react'
-import {connect} from 'react-redux'
-import {AppBar} from 'material-ui'
-import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider'
-import Drawer from 'material-ui/Drawer'
-import BetForm from './BetForm'
+import React from 'react';
+import {connect} from 'react-redux';
+import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
+import BetForm from './BetForm';
 import * as AppActions from "../../actions/app";
 import ContractManager from "../../lib/contractManager.js";
 import moment from 'moment';
 require("moment-duration-format");
 import * as _ from 'lodash';
-import { Link } from 'react-router-dom';
-import ReactTable from 'react-table';
 
+import ReactTable from 'react-table';
+import { Page, Section } from 'react-page-layout';
+import { Container, Grid, Dimmer, Loader } from 'semantic-ui-react';
+import TradingViewWidget from '../../components/tradingView';
 export class Home extends React.Component {
 
 
 
     constructor(props) {
         super(props);
-        this.state = {open: false};
-        this.handleToggle = this.handleToggle.bind(this);
-        this.handleClose = this.handleClose.bind(this);
         this.placeBet = this.placeBet.bind(this);
         this.account = "";
         console.log(this.props)
     }
 
-    handleToggle() {
-        this.setState({open: !this.state.open})
-    }
 
-    handleClose() {
-        this.setState({open: true})
-    }
 
     async getContract(web3, env) {
         this.contractManager = new ContractManager(web3, env);
@@ -54,6 +45,7 @@ export class Home extends React.Component {
         console.log(
           this.contractManager.account, 'get account'
         );
+        this.contractManager.watchEvents();
     }
 
     componentDidMount() {
@@ -72,6 +64,7 @@ export class Home extends React.Component {
           window.web3.eth.getAccounts(
             (err,accs) => {
               let env = window.web3.version.network == 1 ? 'production' : 'development';
+              console.log(window.web3.version.network, 'web3 network');
               this.getContract(window.web3, env);
               this.contractManager.account = accs != null ? accs[0] : false;
             }
@@ -88,81 +81,36 @@ export class Home extends React.Component {
           }, 100);
         });
 
+
     }
 
+
     async placeBet(values) {
-        console.log(values);
-        this.contractManager.uiBid(values.expected_value);
+      console.log(values);
+      let resolvedRound = 0;
+      await this.contractManager.uiBid(values.expected_value);
+      _.forEach(this.props.app.rounds, (round) => {
+           if (round.status > 1 ) {
+             resolvedRound = round.roundId;
+           }
+      });
+
+      await this.contractManager.setPrice(220);
       this.props.dispatch(
         AppActions.getRounds(
           await this.contractManager.getRounds(
-          1,1
-        )));
+            await this.contractManager.getRoundCount(Date.now())
+          )
+        )
+      );
 
     }
-
-
-
-    renderRounds(rounds) {
-
-
-          /*
-          return _.reverse(_.map(rounds,(item, index) =>  {
-                let info = "";
-                let now = new Date();
-                let closeDateinfo = "\nbets are for price published in "+ new Date(
-                  1000*(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber())
-                );
-                switch (this.contractManager.getStatus(item.status)) {
-
-                    case "FUTURE" :
-                  case "OPEN" :
-                        info += " - "+this.contractManager.timediff2str(item.closeDate-now)+" to close."
-                        info +=closeDateinfo;
-                        break;
-
-                    case "CLOSED" :
-                        info += " - "+this.contractManager.timediff2str(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber()-now)+" to oraclize sets the price."
-                        info +=closeDateinfo;
-                        break;
-                    case "PRICEWAIT":
-                        info += " - "+this.contractManager.timediff2str(item.closeDate+this.contractManager.config.betMinRevealLength.toNumber()-now)+" deadline to oraclize sets the price."
-                        info +=closeDateinfo;
-                        break;
-                    case "PRICESET" :
-                        info += " - price is "+item.target+" ETH/USD "+item.lastCheckedBetNo+"/"+item.betCount+" resolved."
-                        break;
-                    case "PRICELOST" :
-                        break;
-                    case "RESOLVED" :
-                    case "FINISHED" :
-                        info += " - price is "+item.target+" ETH/USD and  winner account is "+item.bets[item.closestBetNo].account;
-                        break;
-                }
-
-                return(
-              <div>
-                    <p key={index}>round: #{index} | bets {item.bets.length} | {this.contractManager.getStatus(item.status)} -> {info}</p>
-                  <ul>
-                    {_.map(item.bets, (item,index) => <li>#{index} {item.target} from {item.account}</li>)}
-                  </ul>
-              </div>
-                )
-            }));
-
-
-*/
-
-    }
-
-
 
     renderConfig(config) {
         if (config != false) {
             let roundDuration = moment.duration(config.betCycleLength.toNumber(), "seconds");
             return (
             <div>
-                <p>Deployed at {this.contractManager.contract.address} , updater at {config.priceUpdater}</p>
                 <p>Bet amount {this.contractManager.toEth(config.betAmount)} ETH</p>
                 <p>Boat {this.contractManager.toEth(config.boat)} ETH</p>
                 <p>New round each in {roundDuration.format("d[d] h:mm:ss")}</p>
@@ -170,7 +118,11 @@ export class Home extends React.Component {
             </div>
             );
         } else {
-            return (<img src='http://keegansirishpub.net/wp-content/themes/octane-bootstrap/images/loader.gif'/>);
+          return(
+            <Dimmer active>
+             <Loader />
+          </Dimmer>
+          );
         }
     }
 
@@ -207,8 +159,16 @@ export class Home extends React.Component {
               return (
                 <button onClick={(e) => {
                   e.preventDefault();
-                  this.contractManager.refund(props.row.roundId)
-                }}>Refund</button>
+                  this.contractManager.withdraw(props.row.roundId)
+                }}>Withdraw</button>
+              )
+            }
+            if (props.row.status == 4) {
+              return (
+                <button onClick={(e) => {
+                  e.preventDefault();
+                  this.contractManager.forceResolve(props.row.roundId);
+                }}>Resolve Round</button>
               )
             }
           }
@@ -216,32 +176,36 @@ export class Home extends React.Component {
       ];
 
       return (
-            <div>
+
+        <Page layout="public">
+          <Section slot="main">
+
+
+            <Grid container stretched  celled >
+              <Grid.Column  floated="left" width={5}>
+                {this.renderConfig(this.props.app.config)}
                 <MuiThemeProvider>
-                    <div>
-                        <AppBar
-                            onLeftIconButtonTouchTap={this.handleToggle}
-                            title="Bettingon"
-                        />
-                      <Link to ="/about">About</Link>
-                        <BetForm onSubmit={this.placeBet}/>
-                      {this.renderConfig(this.props.app.config)}
-                      {this.renderRounds(this.props.app.rounds)}
-
-                        <ReactTable
-                        loading={this.props.app.rounds == false}
-                        data={this.props.app.rounds}
-                        columns={columns}
-                        sorted={[{
-                          id: 'round',
-                          desc: true
-                        }]}
-                        />
-
-                    </div>
+                  <BetForm onSubmit={this.placeBet}/>
                 </MuiThemeProvider>
 
-            </div>
+              </Grid.Column>
+              <Grid.Column  floated="left" width={5}>
+                  <TradingViewWidget width="360" height="360" currency="ETH" />
+              </Grid.Column>
+            </Grid>
+
+                <ReactTable
+                loading={this.props.app.rounds == false}
+                data={this.props.app.rounds}
+                columns={columns}
+                sorted={[{
+                  id: 'round',
+                  desc: true
+                }]}
+                />
+
+          </Section>
+        </Page>
         )
     }
 }

@@ -8,7 +8,7 @@
     "build-dapp": "NODE_ENV=production webpack --config dapp/webpack.prod.config.js",
     "dev": "webpack-dev-server",
     "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
-    "deploy-dapp": "surge dapp/build bettingon.surge.sh",
+    "deploy-dapp": "surge dapp/build",
     "dapp-serve": "npm run build-dapp && http-server-spa dapp/build",
     "testrpc": "testrpc -d -u 0 -u 1",
     "contract-update": "truffle migrate --reset",
@@ -33,6 +33,7 @@
     "react": "^15.6.1",
     "react-dom": "^15.6.1",
     "react-helmet": "^5.1.3",
+    "react-page-layout": "^0.9.6",
     "react-redux": "^5.0.5",
     "react-router": "^4.1.2",
     "react-router-dom": "^4.1.2",
@@ -42,7 +43,8 @@
     "redux": "^3.7.2",
     "redux-form": "^6.8.0",
     "redux-form-material-ui": "^4.2.0",
-    "redux-thunk": "^2.2.0"
+    "redux-thunk": "^2.2.0",
+    "semantic-ui-react": "^0.71.3"
   },
   "devDependencies": {
     "babel-cli": "^6.24.1",
@@ -61,6 +63,7 @@
     "css-loader": "^0.26.4",
     "eslint": "^3.19.0",
     "eslint-config-standard": "^6.2.1",
+    "eslint-plugin-async-await": "0.0.0",
     "eslint-plugin-babel": "^4.1.1",
     "eslint-plugin-import": "^2.7.0",
     "eslint-plugin-json": "^1.2.0",
