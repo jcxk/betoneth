@@ -52,6 +52,8 @@ class contractManager {
     Bettingon.setProvider(web3.currentProvider);
     this.contractPromise = (env === 'production') ?
       Promise.resolve(Bettingon.at(mainNetAddress)) : Bettingon.deployed();
+    this.env = env;
+
   }
 
   getStatus (statusId) {
@@ -192,11 +194,14 @@ class contractManager {
   async uiBid (targetStr) {
     let currentRoundId = await this.getCurrentRoundId();
     let targets=targetStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
+    let opts = { ...this.getOptions(), value: this.config.betAmount.mul(targets.length) }
+    console.log(opts);
+    console.log(this.getOptions());
     return await this.doTransaction(
           this.contract.bet(
             currentRoundId,
             targets,
-            { from: this.account, value: this.config.betAmount.mul(targets.length), gas: 500000 }
+            opts
             )
         );
 
@@ -208,10 +213,20 @@ class contractManager {
     });
   }
 
+
+  getOptions() {
+
+    let opts = { from: this.account };
+    if (this.env == 'development') {
+      opts['gas'] = 500000;
+    }
+    return opts;
+  }
+
   async setPrice (price) {
     console.log(price);
     return await this.doTransaction(
-      this.contract.updateEthPrice(price,{from: this.account, gas: 500000})
+      this.contract.updateEthPrice(price,this.getOptions())
     );
 
   }
@@ -219,7 +234,7 @@ class contractManager {
   async forceResolve (roundId) {
 
     return await this.doTransaction(
-       this.contract.resolve(roundId,999,{from: this.account})
+       this.contract.resolve(roundId,999,this.getOptions())
     );
 
   }
@@ -227,7 +242,7 @@ class contractManager {
   async withdraw (roundId) {
 
     return await this.doTransaction(
-      this.contract.withdraw(roundId,{from: this.account, gas: 500000})
+      this.contract.withdraw(roundId,this.getOptions())
     );
 
   }

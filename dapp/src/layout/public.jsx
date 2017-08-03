@@ -59,7 +59,7 @@ class PublicLayout extends Component {
             <Grid.Column  stretched floated="right" width={5} >
               <Grid  stretched>
                   <Grid.Row >
-                    <Container textAling="center">
+                    <Container >
                       <h1>Ranking</h1>
                       <Table basic='very'>
                         <Table.Header>
