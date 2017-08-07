@@ -106,16 +106,39 @@ export class Home extends React.Component {
 
     }
 
-    renderConfig(config) {
-        if (config != false) {
-            let roundDuration = moment.duration(config.betCycleLength.toNumber(), "seconds");
+    renderBetForm() {
+
+        if (this.props.app.rounds.length > 0) {
+            let currentRound = this.props.app.rounds[this.props.app.rounds.length - 1] ;
+            const avgBets= _.meanBy(currentRound.bets, (p) => p.target);
+            //let roundDuration = moment.duration(this.props.app.config.betCycleLength.toNumber(), "seconds");
             return (
             <div>
-                <p>Bet amount {this.contractManager.toEth(config.betAmount)} ETH</p>
-                <p>Boat {this.contractManager.toEth(config.boat)} ETH</p>
-                <p>New round each in {roundDuration.format("d[d] h:mm:ss")}</p>
-                <p>UTC time is {moment.utc().format('LLL')}</p>
+                <table width="100%">
+                  <tbody>
+                  <tr>
+                    <td>OPEN ROUND:</td><td>#{this.props.app.rounds[0].roundId}</td>
+                  </tr>
+                  <tr>
+                    <td>BETS:</td><td>{currentRound.bets.length}</td>
+                  </tr>
+                  <tr>
+                    <td>JACKPOT: </td><td>{this.props.app.config.boat.toNumber()}</td>
+                  </tr>
+                  <tr>
+                    <td>AVERAGE:</td><td>{(avgBets>0) ? avgBets/1000 : 0}</td>
+                  </tr>
+                  <tr>
+                    <td>TIME TO CLOSE:</td><td>Bets are for price published till
+                    {moment(currentRound.closeDate).local().format("YYYY-MM-DD HH:mm")}</td>
+                  </tr>
+                  </tbody>
+                </table>
+              <MuiThemeProvider>
+                <BetForm onSubmit={this.placeBet}/>
+              </MuiThemeProvider>
             </div>
+
             );
         } else {
           return(
@@ -183,11 +206,7 @@ export class Home extends React.Component {
 
             <Grid container stretched  celled >
               <Grid.Column  floated="left" width={5}>
-                {this.renderConfig(this.props.app.config)}
-                <MuiThemeProvider>
-                  <BetForm onSubmit={this.placeBet}/>
-                </MuiThemeProvider>
-
+                {this.renderBetForm()}
               </Grid.Column>
               <Grid.Column  floated="left" width={5}>
                   <TradingViewWidget width="360" height="360" currency="ETH" />

@@ -10,7 +10,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   context: path.resolve(__dirname, './src'),
-  devtool: 'inline-source-map',
+  devtool: 'cheap-module-source-map',
   entry: {
     'app': [
       'babel-polyfill',

@@ -1,31 +1,46 @@
 import React, { Component } from 'react';
 import { Field, reduxForm } from 'redux-form';
 
-import {
-  TextField
-} from 'redux-form-material-ui';
+import { Form, Input, Button } from 'semantic-ui-react';
 
 const required = value => value == null ? 'Required' : undefined;
 const number = value => value && isNaN(Number(value)) ? 'Must be a number' : undefined
 
 export class BetForm extends Component {
 
+
+
   render() {
-    const { handleSubmit, submitting } = this.props
+    const { handleSubmit, submitting } = this.props;
+    const semanticFormField = (
+      { input, type, label, placeholder,
+        meta: { touched, error, warning },
+        as: As = Input, ...props }) => {
+      function handleChange (e, { value }) {
+        return input.onChange(value);
+      }
+      return (
+        <Form.Field>
+          <As {...props} {...input} value={input.value} type={type} label={label} placeholder={placeholder} onChange={handleChange} />
+          {touched && ((error && <span><i>{error}</i></span>) || (warning && <span><i>{warning}</i></span>))}
+        </Form.Field>
+      );
+    };
     return (
-      <form onSubmit={handleSubmit}>
-        <div>
-          <Field name="expected_value"
-            component={TextField}
-            hintText="Expected valuesss of eths"
-            floatingLabelText="Expected value of eth"
+      <Form name="product" onSubmit={handleSubmit}>
+
+        <Field name="expected_value"
+            label="MY BID"
+            labelPosition="left"
+            component={semanticFormField}
+            as={Form.Input}
+            placeholder="Expected value of eth"
             validate={[required,number]}
-            />
-        </div>
-        <div>
-          <button type="submit" disabled={submitting}>Submit</button>
-        </div>
-      </form>
+         />
+        <Button primary loading={submitting} disabled={submitting}>BET</Button>
+      </Form>
+
+
     )
   }
 }

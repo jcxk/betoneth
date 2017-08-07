@@ -13,7 +13,9 @@
     "testrpc": "testrpc -d -u 0 -u 1",
     "contract-update": "truffle migrate --reset",
     "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc",
-    "eslint-dapp": "eslint -c dapp/.eslintrc.json dapp"
+    "eslint-dapp": "eslint -c dapp/.eslintrc.json dapp",
+    "deploy" : "eslint -c dapp/.eslintrc.json dapp --quiet && npm run build && npm run deploy-dapp",
+    "test": "npm-run-all"
   },
   "author": [
     "Juan Carlos Escamilla",
@@ -25,7 +27,6 @@
     "ethpm": "0.0.14",
     "html-webpack-harddisk-plugin": "^0.1.0",
     "lodash": "^4.17.4",
-    "material-ui": "^0.17.4",
     "moment": "^2.18.1",
     "moment-duration-format": "^1.3.0",
     "npm-run-all": "^4.0.2",
@@ -42,7 +43,6 @@
     "react-tap-event-plugin": "^2.0.1",
     "redux": "^3.7.2",
     "redux-form": "^6.8.0",
-    "redux-form-material-ui": "^4.2.0",
     "redux-thunk": "^2.2.0",
     "semantic-ui-react": "^0.71.3"
   },

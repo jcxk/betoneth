@@ -10,7 +10,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   context: path.resolve(__dirname, './src'),
-  devtool: 'source-map',
+  devtool: 'inline-source-map',
   devServer: {
     historyApiFallback: true,
   },

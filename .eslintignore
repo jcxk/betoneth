@@ -1,5 +1,6 @@
 tmp/**
-build/**
+*/build/**
+
 node_modules/**
 contracts/**
 migrations/1_initial_migration.js

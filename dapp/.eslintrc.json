@@ -134,8 +134,8 @@
     "generator-star": 0,
     // enforce the position of the * in generator functions (off by default)
 
-    "react/jsx-uses-react": "error",
-    "react/jsx-uses-vars": "error",
+    "react/jsx-uses-react": "warn",
+    "react/jsx-uses-vars": "warn",
     "no-console": 0,
     "no-unused-vars": "warn"
   }
