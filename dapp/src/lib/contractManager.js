@@ -1,7 +1,4 @@
-import {default as contract} from 'truffle-contract';
-
-import * as _ from 'lodash';
-import moment from 'moment';
+import BaseContractManager from './baseContractManager';
 
 let contractConfig = [
   'betCycleLength',
@@ -12,7 +9,6 @@ let contractConfig = [
   'platformFee',
   'boatFee',
   'lastRevealedRound',
-//  'resolvingRound',
   'boat',
   'priceUpdater'
 ];
@@ -40,56 +36,25 @@ const statuses = [
 ]
 const contractBasePath = '../../../build/contracts/';
 
-class contractManager {
+class contractManager extends BaseContractManager {
 
-  constructor (web3, env) {
-    this.web3 = web3;
-    const contractName = (env === 'development') ? 'BettingonTest':'Bettingon';
-    let Bettingon = contract(
-      require ("../../../build/contracts/"+contractName+".json")
-    );
-
-    Bettingon.setProvider(web3.currentProvider);
-    this.contractPromise = (env === 'production') ?
-      Promise.resolve(Bettingon.at(mainNetAddress)) : Bettingon.deployed();
-    this.env = env;
-
+  constructor (web3, opts = {}) {
+    let contractName = 'Bettingon';
+    if (opts.env === 'development') {
+       contractName += 'Test';
+      opts['json'] = require("../../../build/contracts/"+contractName+".json");
+    } else {
+      opts['address'] = mainNetAddress;
+    }
+    opts['config'] = contractConfig;
+    super(web3, opts);
+    this.account="";
   }
 
   getStatus (statusId) {
     return statuses[statusId];
   }
 
-  async init () {
-    this.contract = await this.getContract();
-    this.abiNames = _.map(this.contract.abi, 'name');
-    let configVarsPromises = contractConfig.map((item) => {
-      try {
-      return this.contract[item]()
-      } catch(e) {
-        console.log(item, 'getter error');
-      }
-    });
-
-
-    this.config = await Promise.all(configVarsPromises).then((_values) => {
-      return Object.assign({},
-        ...contractConfig.map(
-          (contractConstant, index) => (
-            {[contractConstant]: _values[index]}
-          )
-        )
-      );
-    });
-    this.config['address'] = this.contract.address;
-
-  }
-
-
-
-  toEth(value) {
-    return this.web3.toBigNumber(value).div(web3.toWei(1, 'finney')) / 1000
-  }
 
   async getRoundCount(fromDate) {
     let parsedDate = this.web3.toBigNumber(
@@ -101,44 +66,6 @@ class contractManager {
         return roundCount.toNumber();
       });
   }
-
-  async getContract() {
-    return this.contractPromise.then(function (contractObj) {
-      return contractObj;
-    });
-  }
-
-  getMethodReturnFromAbi(method) {
-    let methodIndex = _.indexOf(this.abiNames, method);
-    return _.map(this.contract.abi[methodIndex].outputs, 'name');
-  }
-
-  async contractCall(method, params) {
-    let methodPromise = '';
-    switch (method) {
-      case "getBetAt":
-      case "getRoundAt":
-        methodPromise = this.contract[method](params[0], params[1]);
-        break;
-
-      default:
-        return false;
-    }
-
-    return methodPromise.then(
-      (_values) => {
-        let response = {};
-        _.map(
-          this.getMethodReturnFromAbi(method),
-          (responseProperty, index) => {
-            response[responseProperty] = typeof(_values[index]) == 'string' ? _values[index] : _values[index].toNumber();
-            //this.web3.is_big_number(_values[index]) ? _values[index].toNumber() : _values[index]
-          });
-        return response;
-      }
-    );
-  }
-
 
   async getRounds(lastRound, roundStart = 0) {
     let rounds = [];
@@ -166,23 +93,18 @@ class contractManager {
   }
 
   async getRoundInfo(roundNo, now) {
-    return this.contractCall("getRoundAt", [roundNo, now]);
+    return await this.contractCall("getRoundAt", [roundNo, now]);
   }
 
   async getRoundFullInfo(roundNo, now) {
     let round = await this.getRoundInfo(roundNo, now);
+    console.log(round);
     let bets = await this.getBetsRound(roundNo, round.betCount);
     let response = round;
     response['bets'] = bets;
     return response;
   }
 
-
-  getNow() {
-    return this.web3.toBigNumber(
-      Math.floor(Date.now() / 1000)
-    );
-  }
 
   async getCurrentRoundId() {
     let roundArr = await this.contract.getRoundById(0,this.getNow());
@@ -194,9 +116,9 @@ class contractManager {
   async uiBid (targetStr) {
     let currentRoundId = await this.getCurrentRoundId();
     let targets=targetStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
+
     let opts = { ...this.getOptions(), value: this.config.betAmount.mul(targets.length) }
     console.log(opts);
-    console.log(this.getOptions());
     return await this.doTransaction(
           this.contract.bet(
             currentRoundId,
@@ -207,21 +129,8 @@ class contractManager {
 
   }
 
-  watchEvents() {
-    this.contract.allEvents({fromBlock: 0, toBlock: 'latest'}).watch( (error, result) => {
-       console.log(error != undefined ? error: { event: result.event, args: result.args } ,'event');
-    });
-  }
 
 
-  getOptions() {
-
-    let opts = { from: this.account };
-    if (this.env == 'development') {
-      opts['gas'] = 500000;
-    }
-    return opts;
-  }
 
   async setPrice (price) {
     console.log(price);
@@ -246,53 +155,6 @@ class contractManager {
     );
 
   }
-
-  getTransactionReceiptMined(txnHash, interval = 500) {
-
-    let transactionReceiptAsync = (txnHash, resolve, reject) => {
-      try {
-        this.web3.eth.getTransactionReceipt(txnHash,
-          (_,receipt) => {
-          if (receipt == null || receipt.blockNumber == null ) {
-            setTimeout(function () {
-              transactionReceiptAsync(txnHash, resolve, reject);
-            }, interval);
-          } else {
-            resolve(receipt);
-          }
-        });
-      } catch(e) {
-        reject(e);
-      }
-    };
-
-
-    if (Array.isArray(txnHash)) {
-      var promises = [];
-      txnHash.forEach(function (oneTxHash) {
-        console.log(oneTxHash,'hash');
-        promises.push(self.getTransactionReceiptMined(oneTxHash, interval));
-      });
-      return Promise.all(promises);
-    } else {
-      return new Promise(function (resolve, reject) {
-        transactionReceiptAsync(txnHash, resolve, reject);
-      });
-    }
-  }
-
-
-  async doTransaction(_promise) {
-    return _promise
-      .then ( (_tx) => {
-        //console.log("tx "+_tx.tx);
-        return this.getTransactionReceiptMined(_tx.tx);
-      }).then ( ( _resolve, _reject ) => {
-        console.log('success tx');
-    });
-
-  }
-
 
   timediff2str(diff) {
 

@@ -19,14 +19,14 @@ export class Home extends React.Component {
     constructor(props) {
         super(props);
         this.placeBet = this.placeBet.bind(this);
-        this.account = "";
+        this.account = null;
         console.log(this.props)
     }
 
 
 
-    async getContract(web3, env) {
-        this.contractManager = new ContractManager(web3, env);
+    async getContract(web3, opts) {
+        this.contractManager = new ContractManager(web3, opts);
         await this.contractManager.init();
         console.log(this.contractManager);
         this.props.dispatch(
@@ -48,40 +48,47 @@ export class Home extends React.Component {
         this.contractManager.watchEvents();
     }
 
+    web3init(){
+      var self = this;
+      window.addEventListener('load', () =>  {
+
+        if (typeof web3 !== 'undefined') {
+          window.web3 = new Web3(web3.currentProvider);
+        } else {
+          console.warn("No web3 detected. Falling back to http://localhost:8545. You should remove this fallback when you deploy live, as it's inherently insecure. Consider switching to Metamask for development. More info here: http://truffleframework.com/tutorials/truffle-and-metamask");
+          // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
+          window.web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+        }
+        window.web3.eth.getAccounts(
+          (err,accs) => {
+            let env = window.web3.version.network == 1 ? 'production' : 'development';
+            console.log(window.web3.version.network, 'web3 network');
+            let account = accs != null ? accs[0] : false;
+            console.log(account,'getting account');
+            this.getContract(window.web3,
+              {env : env , account: account}
+            );
+            this.contractManager.account=account;
+            console.log(this.contractManager);
+
+          }
+        );
+
+        var account = window.web3.eth.accounts[0];
+        var accountInterval = setInterval( () => {
+          if (window.web3.eth.accounts[0] !== account) {
+            account = window.web3.eth.accounts[0];
+            this.forceUpdate();
+            this.contractManager.account = account;
+            console.log('changed account detected', self.contractManager.account);
+          }
+        }, 100);
+      });
+
+    }
+
     componentDidMount() {
-        var self = this;
-        window.addEventListener('load', () =>  {
-            // Checking if Web3 has been injected by the browser (Mist/MetaMask)
-            if (typeof web3 !== 'undefined') {
-                console.warn("Using web3 detected from external source. If you find that your accounts don't appear or you have 0 MetaCoin, ensure you've configured that source properly. If using MetaMask, see the following link. Feel free to delete this warning. :) http://truffleframework.com/tutorials/truffle-and-metamask")
-                // Use Mist/MetaMask's provider
-                window.web3 = new Web3(web3.currentProvider);
-            } else {
-                console.warn("No web3 detected. Falling back to http://localhost:8545. You should remove this fallback when you deploy live, as it's inherently insecure. Consider switching to Metamask for development. More info here: http://truffleframework.com/tutorials/truffle-and-metamask");
-                // fallback - use your fallback strategy (local node / hosted node + in-dapp id mgmt / fail)
-                window.web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
-            }
-          window.web3.eth.getAccounts(
-            (err,accs) => {
-              let env = window.web3.version.network == 1 ? 'production' : 'development';
-              console.log(window.web3.version.network, 'web3 network');
-              this.getContract(window.web3, env);
-              this.contractManager.account = accs != null ? accs[0] : false;
-            }
-          );
-
-          var account = window.web3.eth.accounts[0];
-          var accountInterval = setInterval(function() {
-            if (window.web3.eth.accounts[0] !== account) {
-              account = window.web3.eth.accounts[0];
-              self.forceUpdate();
-              self.contractManager.account = account;
-              console.log('changed account detected', self.contractManager.account);
-            }
-          }, 100);
-        });
-
-
+        this.web3init();
     }
 
 

@@ -20,7 +20,7 @@ class PublicLayout extends Component {
     const { activeItem } = this.state;
     let winners = _.times(6, (index) => {
       return(
-        <Table.Row>
+        <Table.Row key={index}>
           <Table.Cell>
             <Header as='h4'>
               <Header.Content>{index}.MRX</Header.Content>
