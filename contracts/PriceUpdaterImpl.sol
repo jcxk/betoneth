@@ -13,15 +13,21 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
    Bettingon public bettingon; 
    string    public url;
 
+   mapping(bytes32=>uint) roundIdPerMyId; 
+
     function PriceUpdaterImpl(address _owner) {
         owner = _owner;
     }
 
-    function initialize(address _bettingon, string _url) {
-        assert(tx.origin == owner);
+    function initialize(address oar, address _bettingon, string _url) {
+        require(msg.sender == owner);
 
         bettingon = Bettingon(_bettingon);
         url = _url;     // "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
+
+        if (oar != 0 ) {
+            OAR = OraclizeAddrResolverI(oar);
+        }
 
         oraclize_setCustomGasPrice(4 * (10 ** 9)); // Set price to 4 Gigawei
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
@@ -29,20 +35,27 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
 
     function __callback(bytes32 myid, string result, bytes proof) {
         if (msg.sender != oraclize_cbAddress()) throw;
+
+        require(roundIdPerMyId[myid]>0);
+        uint roundId=roundIdPerMyId[myid]-1;
         
-        uint milliUsdPerEth = stringToUint(result); // TODO: extra checks
-        LogUpdate(milliUsdPerEth);
-        if (milliUsdPerEth > 0 && address(bettingon)!=0) {
-            bettingon.updateEthPrice(milliUsdPerEth);
+        uint target = stringToUint(result); // TODO: extra checks
+        LogUpdate(target);
+        if (target > 0 && address(bettingon)!=0) {
+            bettingon.setTargetValue(roundId,target);
         }
     }
     
-    function schedule(uint offset) {
+    function schedule(uint _roundId, uint _timeOffset) {
+        require(msg.sender == address(bettingon));
+
         if (oraclize.getPrice("URL") > this.balance) {
             LogError("Insuficient amount");
             return;
-        }
-        oraclize_query(offset, "URL", url);
+        }        
+        
+        bytes32 myid = oraclize_query(_timeOffset, "URL", url);
+        roundIdPerMyId[myid]=_roundId+1;
     }
     
     function stringToUint(string s) internal constant returns (uint result) {
@@ -62,7 +75,9 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
     }
 
     function terminate() {
-        assert(msg.sender == owner);
+        require(msg.sender == owner);
         selfdestruct(owner);
     }
+
 }
+

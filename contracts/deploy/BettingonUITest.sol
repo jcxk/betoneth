@@ -3,19 +3,19 @@ pragma solidity ^0.4.11;
 import "../BettingonImpl.sol";
 import "../PriceUpdaterImpl.sol";
 
-contract Bettingon4h10finney is BettingonImpl {
+contract BettingonUITest is BettingonImpl {
     
-   function Bettingon4h10finney(
+   function BettingonUITest(
         address owner,
         address priceUpdaterAddress
     ) BettingonImpl(
         owner,
         priceUpdaterAddress,
         /* directory           */ 0, 
-        /* betCycleLength      */ 3600*4,
+        /* betCycleLength      */ 60*4,
         /* betCycleOffset      */ 0,
-        /* betMinReveaLength   */ 3600*4,
-        /* betMaxReveaLength   */ 3600*8,
+        /* betMinReveaLength   */ 60,
+        /* betMaxReveaLength   */ 60*3,
         /* betAmount           */ 10**16,  // 0.01 eths
         /* platformFee         */ 1, 
         /* platformFeeAddress  */ 0,
@@ -31,20 +31,21 @@ contract Bettingon4h10finney is BettingonImpl {
 
 }
 
-contract Bettingon4h10finneyDeploy {
+contract BettingonUITestDeploy {
     
-    PriceUpdaterImpl     public pu;
-    Bettingon4h10finney  public bon;
+    PriceUpdaterImpl public pu;
+    BettingonUITest  public bon;
     
-    function Bettingon4h10finneyDeploy() payable {
-        pu = new PriceUpdaterImpl(msg.sender);
-        bon = new Bettingon4h10finney(msg.sender,address(pu));
+    function BettingonUITestDeploy(
+        address oar
+    ) {
+        pu = new PriceUpdaterImpl(this);
+        bon = new BettingonUITest(this,address(pu));
         pu.initialize(
-            0,
+            oar,
             address(bon),
             "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
         );
-        pu.transfer(msg.value);
     }
     
 }

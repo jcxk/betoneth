@@ -2,9 +2,9 @@ pragma solidity ^0.4.11;
 
 import "../BettingonImpl.sol";
 
-contract BettingonTest is BettingonImpl, PriceUpdater {
+contract BettingonUnitTest is BettingonImpl, PriceUpdater {
     
-   function BettingonTest(
+   function BettingonUnitTest(
         uint    _betCycleLength,
         uint    _betCycleOffset,
         uint    _betMinReveaLength,
@@ -13,7 +13,6 @@ contract BettingonTest is BettingonImpl, PriceUpdater {
         uint    _platformFee,
         address _platformFeeAddress,
         uint    _boatFee
-
     ) BettingonImpl (
         msg.sender,
         this,
@@ -29,11 +28,10 @@ contract BettingonTest is BettingonImpl, PriceUpdater {
     ) {
 
     }
-
-    function __updateEthPrice(uint _milliDollarsPerEth) {
-        updateEthPrice(_milliDollarsPerEth);
+    function __updateEthPrice(uint _roundNo, uint _target) {
+        setTargetValue(_roundNo,_target);
     }
-    function schedule(uint offset) {
+    function schedule(uint _roundId, uint _offset) {
         
     }
 }

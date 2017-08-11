@@ -39,13 +39,35 @@ contract BettingonImpl is Bettingon {
       priceUpdater = PriceUpdater(_priceUpdaterAddress);
       directory = Directory(_directoryAddress);
 
-      assert(!isContract(_platformFeeAddress));
+      require(!isContract(_platformFeeAddress));
+
+    }
+
+    function bet(address _sender, Round storage round, uint _target) internal {
+
+        // -- check if someone already bet on this target
+        if (round.betTargets[_target].account != 0 ) {
+            revert();
+        }
+
+        round.bets.length++;
+        round.bets[round.bets.length-1].account = _sender;
+        round.bets[round.bets.length-1].target = _target;
+
+        round.betTargets[_target] = round.bets[round.bets.length-1];
+        round.amountPerAddress[_sender] = 
+            round.amountPerAddress[_sender].add(betAmount);
+
+        round.balance = round.balance.add(betAmount);
 
     }
 
     function bet(uint _roundId, uint[] _targets) payable {
 
-        assert(_targets.length > 0);
+        // -- check owner finished this bettington
+        require(stopAtRound < _roundId);
+
+        require(_targets.length > 0);
 
         // -- check that the bet is not outdated due network congestion
         var (roundId,) = thisRoundInfo(now);
@@ -56,15 +78,13 @@ contract BettingonImpl is Bettingon {
             return;
         }
 
-        // -- check owner finished this bettington
-        assert(stopAtRound < roundId);
 
         // -- check if the user is in the directory
-        assert(address(directory)==0 || directory.isAllowed(msg.sender));
+        require(address(directory)==0 || directory.isAllowed(msg.sender));
 
         // -- check sent value is, at least the minimum value
         uint totalBetAmount = betAmount.mul(_targets.length);
-        assert(msg.value >= totalBetAmount);
+        require(msg.value >= totalBetAmount);
 
         // -- check if someone already bet on this target
         if (msg.value > betAmount) {
@@ -75,25 +95,8 @@ contract BettingonImpl is Bettingon {
         createRoundIfRequiered();
 
         for (uint targetNo = 0; targetNo < _targets.length ; targetNo++) {
-
-            uint target = _targets[targetNo];
-
-            // -- check if someone already bet on this target
             Round storage round = rounds[rounds.length-1];       
-            if (round.betTargets[target].account != 0 ) {
-                revert();
-            }
-
-            round.bets.length++;
-            round.bets[round.bets.length-1].account = msg.sender;
-            round.bets[round.bets.length-1].target = target;
-
-            round.betTargets[target] = round.bets[round.bets.length-1];
-            round.amountPerAddress[msg.sender] = 
-                round.amountPerAddress[msg.sender].add(betAmount);
-
-            round.balance = round.balance.add(betAmount);
-
+            bet(msg.sender,round,_targets[targetNo]);
         }
         LogBet(_roundId,msg.sender,_targets);
         
@@ -109,6 +112,7 @@ contract BettingonImpl is Bettingon {
         }
         Round storage round = rounds[roundNo];
 
+        // ------------------------------------------------------------------
         // if this round is >closed, and there's only
         //   one betting address, just refund money
 
@@ -122,7 +126,8 @@ contract BettingonImpl is Bettingon {
             return;
         }
 
-        // if this round is target lost, just refund money
+        // ------------------------------------------------------------------
+        // case PRICELOST : if this round is target lost, just refund money
         //   one betting address, just refund money
 
         if (status == RoundStatus.PRICELOST) {
@@ -136,10 +141,11 @@ contract BettingonImpl is Bettingon {
             return;
         }
 
-        // We assume there that the winner is calling this function because
-        //   is the winner, and wants to retrieve their price
+        // ------------------------------------------------------------------
+        // case PRICESET :We assume there that the winner is calling this
+        // function because is the winner, and wants to retrieve their price
 
-        if(getRoundStatus(roundNo,now)==RoundStatus.PRICESET) {
+        if(status==RoundStatus.PRICESET) {
             
             // The round is not yet resolved, so resolve it
             // We have two different strategies here:
@@ -157,6 +163,9 @@ contract BettingonImpl is Bettingon {
 
             resolveRoundNo(roundNo,pendingRounds);
         }
+
+        // ------------------------------------------------------------------
+        //  case RESOLVED
 
         if(getRoundStatus(roundNo,now)!=RoundStatus.RESOLVED) {
             return;
@@ -187,34 +196,21 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function updateEthPrice(uint _milliDollarsPerEth) {
+    function setTargetValue(uint _roundId, uint _target) {
         
-        assert(address(priceUpdater)==msg.sender || address(priceUpdater)==address(this));
+        require(address(priceUpdater)==msg.sender || address(priceUpdater)==address(this));
 
-        while (lastRevealedRound < rounds.length ) {
+        uint roundNo = roundById[_roundId];
+        assert(getRoundStatus(roundNo, now) == RoundStatus.PRICEWAIT);
 
-            RoundStatus status = getRoundStatus(lastRevealedRound, now);
+        rounds[roundNo].target = _target;
 
-            if (status == RoundStatus.PRICEWAIT) {
-                
-                rounds[lastRevealedRound].target = _milliDollarsPerEth;
-
-                LogPriceSet(rounds[lastRevealedRound].roundId,_milliDollarsPerEth);
-                lastRevealedRound++;
-                break;
-
-            } else if (status <= RoundStatus.CLOSED) {
-                break;
-            } 
-
-            lastRevealedRound++;
-
-        }
+        LogPriceSet(rounds[roundNo].roundId,_target);
         
     }
 
     function terminate(uint _stopAtRound) {
-        assert (msg.sender == owner );
+        require (msg.sender == owner );
 
         stopAtRound = _stopAtRound;
     }
@@ -298,7 +294,7 @@ contract BettingonImpl is Bettingon {
 
             roundById[roundId] = rounds.length-1;
             
-            priceUpdater.schedule(closeDate-now+betMinRevealLength);
+            priceUpdater.schedule(roundId, closeDate-now+betMinRevealLength);
         }
     }
 
