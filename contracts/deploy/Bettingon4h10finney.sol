@@ -40,6 +40,7 @@ contract Bettingon4h10finneyDeploy {
         pu = new PriceUpdaterImpl(msg.sender);
         bon = new Bettingon4h10finney(msg.sender,address(pu));
         pu.initialize(
+            0,
             address(bon),
             "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
         );

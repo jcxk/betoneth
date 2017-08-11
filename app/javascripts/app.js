@@ -6,9 +6,11 @@ import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
-import bettingon_artifacts from '../../build/contracts/Bettingon.json'
+import bettingon_artifact from '../../build/contracts/Bettingon.json'
+import bettingontestdeploy_artifact from '../../build/contracts/BettingonTestDeploy.json'
 
-var Bettingon = contract(bettingon_artifacts);
+var Bettingon = contract(bettingon_artifact);
+var BettingonTestDeploy = contract(bettingontestdeploy_artifact);
 
 const FUTURE     = 0  // Not exists yet
 const OPEN       = 1  // Open to bets
@@ -31,7 +33,7 @@ var platformFee;
 var boatFee;
 var priceUpdater;
 
-bon = Bettingon.at("0xbc3f60ff6152e03a2d3d9009595a9c667cfcee04")
+//bon = Bettingon.at("0xbc3f60ff6152e03a2d3d9009595a9c667cfcee04")
 
 window.App = {
 
@@ -42,6 +44,7 @@ window.App = {
 
     // Bootstrap the MetaCoin abstraction for Use.
     Bettingon.setProvider(web3.currentProvider);
+    BettingonTestDeploy.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
@@ -58,23 +61,26 @@ window.App = {
       accounts = accs;
       account = accounts[0];
 
-      let getBonFunc
+      let bonAddress
 
       if (typeof bon === 'undefined') {
-
-        getBonFunc = Bettingon.deployed();
+        bonAddress = BettingonTestDeploy.deployed().then(
+           function(_bettingonTestDeploy) {
+             return _bettingonTestDeploy.bon();
+           }
+        );
 
       } else {
 
-        getBonFunc = new Promise(function (resolve, reject) {
-            resolve(bon);
+        bonAddress = new Promise(function (resolve, reject) {
+            resolve(bon.address);
         });
 
       } 
 
-      getBonFunc.then(function(_bon) {
-        bon = _bon;
-        console.log("bon=",bon.address)
+      bonAddress.then(function(_bon) {
+        bon = Bettingon.at(_bon);
+        console.log("bon.address=",_bon)
         return Promise.all([
             bon.betCycleLength(),
             bon.betCycleOffset(),

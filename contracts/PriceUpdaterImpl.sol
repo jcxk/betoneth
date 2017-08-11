@@ -17,11 +17,15 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
         owner = _owner;
     }
 
-    function initialize(address _bettingon, string _url) {
+    function initialize(address oar, address _bettingon, string _url) {
         assert(tx.origin == owner);
 
         bettingon = Bettingon(_bettingon);
         url = _url;     // "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
+
+        if (oar != 0 ) {
+            OAR = OraclizeAddrResolverI(oar);
+        }
 
         oraclize_setCustomGasPrice(4 * (10 ** 9)); // Set price to 4 Gigawei
         oraclize_setProof(proofType_TLSNotary | proofStorage_IPFS);
