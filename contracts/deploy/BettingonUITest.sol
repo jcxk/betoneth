@@ -3,9 +3,9 @@ pragma solidity ^0.4.11;
 import "../BettingonImpl.sol";
 import "../PriceUpdaterImpl.sol";
 
-contract BettingonTest is BettingonImpl {
+contract BettingonUITest is BettingonImpl {
     
-   function BettingonTest(
+   function BettingonUITest(
         address owner,
         address priceUpdaterAddress
     ) BettingonImpl(
@@ -31,16 +31,16 @@ contract BettingonTest is BettingonImpl {
 
 }
 
-contract BettingonTestDeploy {
+contract BettingonUITestDeploy {
     
     PriceUpdaterImpl public pu;
-    BettingonTest    public bon;
+    BettingonUITest  public bon;
     
-    function BettingonTestDeploy(
+    function BettingonUITestDeploy(
         address oar
-    ) payable {
-        pu = new PriceUpdaterImpl(msg.sender);
-        bon = new BettingonTest(msg.sender,address(pu));
+    ) {
+        pu = new PriceUpdaterImpl(this);
+        bon = new BettingonUITest(this,address(pu));
         pu.initialize(
             oar,
             address(bon),

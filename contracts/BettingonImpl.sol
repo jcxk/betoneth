@@ -187,29 +187,16 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function updateEthPrice(uint _milliDollarsPerEth) {
+    function setTargetValue(uint _roundId, uint _target) {
         
         assert(address(priceUpdater)==msg.sender || address(priceUpdater)==address(this));
 
-        while (lastRevealedRound < rounds.length ) {
+        uint roundNo = roundById[_roundId];
+        require(getRoundStatus(roundNo, now) == RoundStatus.PRICEWAIT);
 
-            RoundStatus status = getRoundStatus(lastRevealedRound, now);
+        rounds[roundNo].target = _target;
 
-            if (status == RoundStatus.PRICEWAIT) {
-                
-                rounds[lastRevealedRound].target = _milliDollarsPerEth;
-
-                LogPriceSet(rounds[lastRevealedRound].roundId,_milliDollarsPerEth);
-                lastRevealedRound++;
-                break;
-
-            } else if (status <= RoundStatus.CLOSED) {
-                break;
-            } 
-
-            lastRevealedRound++;
-
-        }
+        LogPriceSet(rounds[roundNo].roundId,_target);
         
     }
 
@@ -298,7 +285,7 @@ contract BettingonImpl is Bettingon {
 
             roundById[roundId] = rounds.length-1;
             
-            priceUpdater.schedule(closeDate-now+betMinRevealLength);
+            priceUpdater.schedule(roundId, closeDate-now+betMinRevealLength);
         }
     }
 

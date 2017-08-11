@@ -8,7 +8,7 @@
 const assertJump = require("./helpers/assertJump.js");
 const timeTravel = require("./helpers/timeTravel.js");
 
-const BettingonTest = artifacts.require("../contracts/deploy/BettingonTest.sol");
+const BettingonUnitTest = artifacts.require("../contracts/deploy/BettingonUnitTest.sol");
 
 contract("Basic unit tests", (accounts) => {
 
@@ -45,8 +45,7 @@ contract("Basic unit tests", (accounts) => {
 
     beforeEach(async () => {
 
-        bon = await BettingonTest.new(
-
+        bon = await BettingonUnitTest.new(
             betCycleLength,
             betCycleOffset,
             betMinRevealLength,
@@ -114,7 +113,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId,[260000],  {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        const trn = await bon.__updateEthPrice(250000)  //   and set to 250$/h
+        const trn = await bon.__updateEthPrice(roundId,250000)  //   and set to 250$/h
         assert.equal(trn.logs.length, 1);
         assert.equal(trn.logs[ 0 ].event, "LogPriceSet");
         assert.equal(trn.logs[ 0 ].args.roundId.toNumber(), roundId.toNumber());
@@ -144,7 +143,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId, [260000], {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(250000)  //   and set to 250$/h
+        await bon.__updateEthPrice(roundId,250000)  //   and set to 250$/h
 
         let trn = await bon.resolve(roundId,1)
         assert.equal(trn.logs.length, 1);
@@ -174,7 +173,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId,[270000,245000], {from : user2 , value : betValue.mul(2)})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(250000)  //   and set to 250$/h
+        await bon.__updateEthPrice(roundId,250000)  //   and set to 250$/h
 
         const trn = await bon.resolve(roundId,3)
         assert.equal(trn.logs.length, 1);
@@ -192,7 +191,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId,[245000], {from : user2 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(250000)  //   and set to 250$/h
+        await bon.__updateEthPrice(roundId,250000)  //   and set to 250$/h
 
         const trn = await bon.withdraw(roundId, { from: user2 })
         assert.equal(trn.logs.length, 2);
@@ -212,7 +211,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId1, [260000], {from : user1 , value : betValue1})
         await bon.bet(roundId1, [270000], {from : user2 , value : betValue1})
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(250000)  //   and set to 250$/h
+        await bon.__updateEthPrice(roundId1,250000)  //   and set to 250$/h
         await bon.resolve(roundId1,2)
         await bon.withdraw(roundId1, { from: user1 } )
 
@@ -224,7 +223,7 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId2, [270000], {from : user1 , value : betValue2})
         await bon.bet(roundId2, [260000], {from : user2 , value : betValue2})
         await timeTravel(betCycleLength+betMinRevealLength+1);
-        await bon.__updateEthPrice(270000)  //   and set to 270$/h
+        await bon.__updateEthPrice(roundId2,270000)  //   and set to 270$/h
         await bon.resolve(roundId2,2)
         
         const fees = percent(betValue2.mul(2).toNumber(),platformFee+boatFee)
@@ -263,7 +262,7 @@ contract("Basic unit tests", (accounts) => {
         await timeTravel(betMinRevealLength);
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), PRICEWAIT);
 
-        await bon.__updateEthPrice(250000) 
+        await bon.__updateEthPrice(roundId,250000) 
 
         assert.equal((await bon.getRoundAt(roundNo,VMTIME))[1].toNumber(), PRICESET);
         await bon.resolve(roundId,1)
@@ -284,9 +283,12 @@ contract("Basic unit tests", (accounts) => {
         await bon.bet(roundId, [260000], {from : user1 , value : betValue})
 
         await timeTravel(betCycleLength+betMinRevealLength-60); 
-        await bon.__updateEthPrice(250000)  // and set to 250$/h
-
-        assert.equal((await bon.getRoundById(roundId,VMTIME))[2].toNumber(), CLOSED);
+        try {
+            await bon.__updateEthPrice(roundId,250000)  // and set to 250$/h
+        } catch (error) {
+            return assertJump(error);
+        }
+        assert.fail("should have thrown before");
     });
 
     it("two bets cannot have the same amount", async () => {

@@ -7,10 +7,10 @@ import { default as contract } from 'truffle-contract'
 
 // Import our contract artifacts and turn them into usable abstractions.
 import bettingon_artifact from '../../build/contracts/Bettingon.json'
-import bettingontestdeploy_artifact from '../../build/contracts/BettingonTestDeploy.json'
+import bettingonuitestdeploy_artifact from '../../build/contracts/BettingonUITestDeploy.json'
 
 var Bettingon = contract(bettingon_artifact);
-var BettingonTestDeploy = contract(bettingontestdeploy_artifact);
+var BettingonUITestDeploy = contract(bettingonuitestdeploy_artifact);
 
 const FUTURE     = 0  // Not exists yet
 const OPEN       = 1  // Open to bets
@@ -44,7 +44,7 @@ window.App = {
 
     // Bootstrap the MetaCoin abstraction for Use.
     Bettingon.setProvider(web3.currentProvider);
-    BettingonTestDeploy.setProvider(web3.currentProvider);
+    BettingonUITestDeploy.setProvider(web3.currentProvider);
 
     // Get the initial account balance so it can be displayed.
     web3.eth.getAccounts(function(err, accs) {
@@ -64,7 +64,7 @@ window.App = {
       let bonAddress
 
       if (typeof bon === 'undefined') {
-        bonAddress = BettingonTestDeploy.deployed().then(
+        bonAddress = BettingonUITestDeploy.deployed().then(
            function(_bettingonTestDeploy) {
              return _bettingonTestDeploy.bon();
            }
@@ -89,7 +89,6 @@ window.App = {
             bon.betAmount(),
             bon.platformFee(),
             bon.boatFee(),
-            bon.lastRevealedRound(),
             bon.boat(),
             bon.getNow(),
             bon.priceUpdater()
@@ -105,7 +104,7 @@ window.App = {
         betAmount = _values[4];
         platformFee = _values[5].toNumber();
         boatFee = _values[6].toNumber();
-        priceUpdater = _values[10];
+        priceUpdater = _values[9];
 
         let paramInfo = "";
 
@@ -116,9 +115,8 @@ window.App = {
         paramInfo+="\nbetAmount="+betAmount.toNumber();
         paramInfo+="\nplatformFee="+platformFee;
         paramInfo+="\nboatFee="+boatFee;
-        paramInfo+="\nlastRevealedRound="+_values[7].toNumber();
-        paramInfo+="\nboat="+_values[8].toNumber();
-        paramInfo+="\nnowhost, nowevm:"+now+","+_values[9].toNumber();
+        paramInfo+="\nboat="+_values[7].toNumber();
+        paramInfo+="\nnowhost, nowevm:"+now+","+_values[8].toNumber();
         paramInfo+="\npriceUpdater="+priceUpdater;
 
         console.log(paramInfo);
@@ -374,7 +372,7 @@ window.App = {
 
     let targets=targetsStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
     self.doTransaction(
-      bon.bet(roundId,targets,{from: account, value: betAmount.mul(targets.length) })
+      bon.bet(roundId,targets,{from: account, value: betAmount.mul(targets.length), gas: 700000 })
     );
 
   },
@@ -398,7 +396,7 @@ window.App = {
     var self = this;
 
     self.doTransaction(
-      bon.resolve(roundId,999,{from: account})
+      bon.resolve(roundId,999,{from: account, gas: 700000})
     );
 
   },
@@ -408,7 +406,7 @@ window.App = {
     var self = this;
 
     self.doTransaction(
-      bon.withdraw(roundId,{from: account})
+      bon.withdraw(roundId,{from: account, gas: 700000})
     );
 
   }

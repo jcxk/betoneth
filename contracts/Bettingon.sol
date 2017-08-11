@@ -56,7 +56,6 @@ contract Bettingon {
 
     Round[]   public        rounds;
     mapping   (uint=>uint)  roundById;
-    uint      public        lastRevealedRound;
     uint      public        boat;
     uint      public        stopAtRound;
 
@@ -81,7 +80,7 @@ contract Bettingon {
     function bet(uint _roundId, uint[] _targets) payable;
     function resolve(uint _roundNo, uint _times);    
     function withdraw(uint _roundId);
-    function updateEthPrice(uint _milliDollarsPerEth);
+    function setTargetValue(uint _roundNo, uint _target);
     function terminate(uint _stopAtRound);
 
     function getRoundById(uint _roundId, uint _now) external constant returns (
