@@ -20,7 +20,7 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
     }
 
     function initialize(address oar, address _bettingon, string _url) {
-        assert(msg.sender == owner);
+        require(msg.sender == owner);
 
         bettingon = Bettingon(_bettingon);
         url = _url;     // "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
@@ -36,7 +36,7 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
     function __callback(bytes32 myid, string result, bytes proof) {
         if (msg.sender != oraclize_cbAddress()) throw;
 
-        assert(roundIdPerMyId[myid]>0);
+        require(roundIdPerMyId[myid]>0);
         uint roundId=roundIdPerMyId[myid]-1;
         
         uint target = stringToUint(result); // TODO: extra checks
@@ -47,7 +47,7 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
     }
     
     function schedule(uint _roundId, uint _timeOffset) {
-        assert(msg.sender == address(bettingon));
+        require(msg.sender == address(bettingon));
 
         if (oraclize.getPrice("URL") > this.balance) {
             LogError("Insuficient amount");
@@ -75,7 +75,7 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
     }
 
     function terminate() {
-        assert(msg.sender == owner);
+        require(msg.sender == owner);
         selfdestruct(owner);
     }
 
