@@ -42,7 +42,7 @@ contract BettingonImpl is Bettingon {
       directory = Directory(_directoryAddress);
 
       require(!isContract(_platformFeeAddress));
-f
+
     }
 
     function bet(address _sender, Round storage round, uint32 _target) internal {
