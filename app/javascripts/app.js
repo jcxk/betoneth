@@ -4,13 +4,14 @@ import "../stylesheets/app.css";
 // Import libraries we need.
 import { default as Web3} from 'web3';
 import { default as contract } from 'truffle-contract'
+import { default as $ } from 'jquery';
 
 // Import our contract artifacts and turn them into usable abstractions.
 import bettingon_artifact from '../../build/contracts/Bettingon.json'
 import bettingonuitestdeploy_artifact from '../../build/contracts/BettingonUITestDeploy.json'
 
-var Bettingon = contract(bettingon_artifact);
-var BettingonUITestDeploy = contract(bettingonuitestdeploy_artifact);
+const Bettingon = contract(bettingon_artifact);
+const BettingonUITestDeploy = contract(bettingonuitestdeploy_artifact);
 
 const FUTURE     = 0  // Not exists yet
 const OPEN       = 1  // Open to bets
@@ -33,11 +34,18 @@ var platformFee;
 var boatFee;
 var priceUpdater;
 
+var candlebar_start
+var candlebar_end
+var candlebar_yscale
+var candlebar_max
+var candlebar_min
+
 //bon = Bettingon.at("0xbc3f60ff6152e03a2d3d9009595a9c667cfcee04")
 
 window.App = {
 
   start: function() {
+
     var self = this;
 
     self.setStatus("Loading...",true);
@@ -122,7 +130,7 @@ window.App = {
         console.log(paramInfo);
 
         let displayInfo = ""; 
-        displayInfo += "Boat : " + self.toEth(_values[8])+" ETH"
+        displayInfo += "Boat : " + self.toEth(_values[7])+" ETH"
         displayInfo += "<br>Bet amount : " + self.toEth(_values[4])+" ETH"
         displayInfo += "<br>New round each : " + self.timediff2str(betCycleLength)
         displayInfo += "<br>UTC time is : " + new Date()
@@ -136,7 +144,7 @@ window.App = {
         }
         self.setStatus("Loaded",false);
 
-        self.refresh();
+        self.refresh_candlebar();
       })
     })
   },
@@ -218,16 +226,35 @@ window.App = {
 
     let info;
 
+    let closeDate
+
     return bon.getRoundAt(roundNo, web3.toBigNumber(now))
     .then(function(_values) {
+      
       info = "<b>"+self.roundInfoFromValues(roundNo,_values,now)+"</b>"
+      closeDate = _values[2].toNumber()
+ 
       let bets = []
       for (let betNo = 0; betNo < _values[3].toNumber(); betNo++) { 
         bets.push(bon.getBetAt(roundNo,betNo));
       } 
       return Promise.all(bets)
     }).then(function(_bets) {
+ 
+      const ctx = $("#canvas")[0].getContext('2d');
+      const t_scale = 
+         ( self.candlebar_end - self.candlebar_start ) /  canvas.width; 
+
+      let x = (closeDate+betMinRevealLength - self.candlebar_start) / t_scale 
+
       for (let betNo = 0; betNo < _bets.length; betNo++) { 
+        let y = canvas.height - (_bets[betNo][1].toNumber()/1000 - self.candlebar_min) / self.candlebar_yscale
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, 2 * Math.PI, false);
+        ctx.strokeStyle = '#222222';
+        ctx.stroke()
+        ctx.fillStyle = '#222222';
+        ctx.fill();
         info += "<br>&#x2605;" + self.formatAddr(_bets[betNo][0]) +" bets for "+_bets[betNo][1].toNumber()/1000+" USD/ETH"
       } 
       info+="<br><br>"
@@ -274,12 +301,30 @@ window.App = {
       info += " "+statuses[status];
       info += " | "+betCount+" bets |";
 
+      const t_scale = 
+         ( self.candlebar_end - self.candlebar_start ) /  canvas.width;      
+      let x = (closeDate+betMinRevealLength - self.candlebar_start) / t_scale
+      const ctx = $("#canvas")[0].getContext('2d');
+
       switch (status) {
         case FUTURE :
         case OPEN :
+
           info += "&nbsp;"+self.timediff2str(closeDate-now)+" to close."
           info += "<br>bets are for price published in "+new Date(1000*(closeDate+betMinRevealLength));         
           info += "&nbsp;<button id='bid' onclick='App.uiBid("+roundId+")'> Bid </button>"
+
+          ctx.beginPath();
+          ctx.setLineDash([5, 3]);
+          ctx.strokeStyle = '#0000ff';
+          ctx.moveTo(x,0);
+          ctx.lineTo(x,canvas.height);
+          ctx.stroke();
+
+          ctx.fillStyle = "#000000";
+          var date = new Date(1000*(closeDate+betMinRevealLength))
+          ctx.fillText(date.getDate()+" "+date.getHours()+"h",x,canvas.height-10);
+
           break;
         case CLOSED :
            info += "&nbsp;"+self.timediff2str(closeDate+betMinRevealLength-now)+" to oraclize starts set the price."
@@ -308,7 +353,110 @@ window.App = {
       return info;    
   },
 
-  refresh: function() {
+  refresh_candlebar :  function() {
+    var self = this;
+
+    let kraken_step = betCycleLength
+    if (kraken_step < 7200) kraken_step = 7200;
+
+    self.candlebar_start = (+new Date() / 1000) - 40 * kraken_step
+    self.candlebar_end = (+new Date() / 1000) + 2 * kraken_step + betMaxRevealLength 
+
+    const url = 'https://poloniex.com/public?command=returnChartData&currencyPair=USDT_ETH&start='+self.candlebar_start+'&end='+self.candlebar_end+'&period='+kraken_step
+
+    $.get( url, function( data ) {
+      
+      const ctx = $("#canvas")[0].getContext('2d');
+
+      self.candlebar_max = data[0].high
+      self.candlebar_min = data[0].low
+      
+      for (let c=1;c<data.length;c++) {
+          if (data[c].high > self.candlebar_max) self.candlebar_max=data[c].high;
+          if (data[c].low < self.candlebar_min) self.candlebar_min=data[c].low;
+      }
+
+      let m_margin = (self.candlebar_max - self.candlebar_min)/10
+      self.candlebar_max = self.candlebar_max + m_margin;
+      self.candlebar_min = self.candlebar_min - m_margin;
+
+      const t_scale = 
+         ( self.candlebar_end - self.candlebar_start ) /  canvas.width;
+      
+      self.candlebar_yscale = 
+         ( self.candlebar_max - self.candlebar_min) /  canvas.height;
+
+      const candle_width = 8
+      ctx.font = "10px Arial";
+
+      for (let c=0;c<data.length;c++) {
+          let x = (data[c].date - self.candlebar_start) / t_scale
+
+          if ( c > 0 && c % 4 == 0 ) {
+            ctx.beginPath();
+            ctx.setLineDash([5, 3]);
+            ctx.strokeStyle = '#dddddd';
+            ctx.moveTo(x+candle_width/2,0);
+            ctx.lineTo(x+candle_width/2,canvas.height);
+            ctx.stroke();
+
+            ctx.fillStyle = "#000000";
+            var date = new Date(data[c].date*1000);
+            console.log(date)
+            console.log(date.getDate())
+            ctx.fillText(date.getDate()+" "+date.getHours()+"h",x,canvas.height-10);
+
+          }
+
+          let y_high = canvas.height - (data[c].high - self.candlebar_min) / self.candlebar_yscale
+          let y_low = canvas.height - (data[c].low - self.candlebar_min) / self.candlebar_yscale
+          let y_open = canvas.height - (data[c].open - self.candlebar_min) / self.candlebar_yscale
+          let y_close = canvas.height - (data[c].close - self.candlebar_min) / self.candlebar_yscale
+
+          ctx.beginPath();
+          ctx.setLineDash([5, 0]);
+          ctx.strokeStyle = '#222222';
+          ctx.moveTo(x,y_high);
+          ctx.lineTo(x,y_low);
+          ctx.stroke();
+          ctx.moveTo(x-candle_width/2,y_high);
+          ctx.lineTo(x+candle_width/2,y_high);
+          ctx.stroke();
+          ctx.moveTo(x-candle_width/2,y_low);
+          ctx.lineTo(x+candle_width/2,y_low);
+          ctx.stroke();
+
+          if (data[c].open >= data[c].close) {
+             ctx.fillStyle = "#2EFE2E";
+             ctx.fillRect(x-candle_width/2,y_close,candle_width,y_open-y_close+1);
+          } else {
+             ctx.fillStyle = "#FE2E2E"
+             ctx.fillRect(x-candle_width/2,y_open,candle_width,y_close-y_open+1);
+          }
+      }
+
+      canvas.addEventListener('mousemove', function(e) {
+
+        let x = e.pageX - canvas.offsetLeft;
+        let y = canvas.offsetTop - e.pageY;
+        let v = y*self.candlebar_yscale + self.candlebar_min
+        v = Math.round(v * 100) / 100
+
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0,0, 100, 25);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 20px arial';
+        ctx.fillText(v, 0, 20, 100);
+
+      }, 0);
+
+      self.refresh_data()
+    });
+
+  },
+
+  refresh_data: function() {
+
     var self = this;
     
     const now = Math.floor(Date.now() / 1000);
@@ -352,7 +500,7 @@ window.App = {
       console.log("tx "+_tx.tx);
       return self.getTransactionReceiptMined(_tx.tx);     
     }).then ( ( _resolve, _reject ) => {
-      self.refresh();
+      self.refresh_candlebar();
       self.setStatus("Success",false);
     }).catch ( (e) => {
       console.log(e);
@@ -373,20 +521,6 @@ window.App = {
     let targets=targetsStr.split(",").map(function(x){return Math.round(parseFloat(x)*1000)})
     self.doTransaction(
       bon.bet(roundId,targets,{from: account, value: betAmount.mul(targets.length), gas: 700000 })
-    );
-
-  },
-
-  uiSetPrice : function() {
-
-    var self = this;
-
-    let target = prompt("Set target to:")
-    if (target === null) {
-      return; 
-    }
-    self.doTransaction(
-      bon.__updateEthPrice(target,"",{from: account})
     );
 
   },
@@ -427,5 +561,6 @@ window.addEventListener('load', function() {
 
   App.start();
 });
+
 
 
