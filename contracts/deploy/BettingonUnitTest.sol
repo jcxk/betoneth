@@ -5,14 +5,14 @@ import "../BettingonImpl.sol";
 contract BettingonUnitTest is BettingonImpl, PriceUpdater {
     
    function BettingonUnitTest(
-        uint    _betCycleLength,
-        uint    _betCycleOffset,
-        uint    _betMinReveaLength,
-        uint    _betMaxReveaLength,
-        uint    _betAmountInDollars,
-        uint    _platformFee,
+        uint64  _betCycleLength,
+        uint64  _betCycleOffset,
+        uint64  _betMinReveaLength,
+        uint64  _betMaxReveaLength,
+        uint    _betAmount,
+        uint8   _platformFee,
         address _platformFeeAddress,
-        uint    _boatFee
+        uint8   _boatFee
     ) BettingonImpl (
         msg.sender,
         this,
@@ -21,17 +21,17 @@ contract BettingonUnitTest is BettingonImpl, PriceUpdater {
         _betCycleOffset,
         _betMinReveaLength,
         _betMaxReveaLength,
-        _betAmountInDollars,
+        _betAmount,
         _platformFee,
         _platformFeeAddress,
         _boatFee
     ) {
 
     }
-    function __updateEthPrice(uint _roundNo, uint _target) {
+    function __updateEthPrice(uint32 _roundNo, uint32 _target) {
         setTargetValue(_roundNo,_target);
     }
-    function schedule(uint _roundId, uint _offset) {
+    function schedule(uint32 _roundId, uint64 _offset) {
         
     }
 }

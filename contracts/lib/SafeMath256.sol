@@ -5,7 +5,7 @@ pragma solidity ^0.4.11;
  * @title SafeMath
  * @dev Math operations with safety checks that throw on error
  */
-library SafeMath {
+library SafeMath256 {
   function mul(uint256 a, uint256 b) internal returns (uint256) {
     uint256 c = a * b;
     assert(a == 0 || c / a == b);
@@ -29,4 +29,12 @@ library SafeMath {
     assert(c >= a);
     return c;
   }
+
+  function add(uint64 a, uint64 b) internal returns (uint64) {
+    uint64 c = a + b;
+    assert(c >= a);
+    return c;
+  }
+
+
 }

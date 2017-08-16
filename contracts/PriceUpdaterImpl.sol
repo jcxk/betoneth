@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.14;
 
 import "./Bettingon.sol";
 import "./PriceUpdater.sol";
@@ -7,13 +7,13 @@ import "./lib/OraclizeAPI04.sol";
 contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
    
    event LogError(string error);
-   event LogUpdate(uint value);
+   event LogUpdate(uint32 value);
 
    address   public owner;
    Bettingon public bettingon; 
    string    public url;
 
-   mapping(bytes32=>uint) roundIdPerMyId; 
+   mapping(bytes32=>uint32) roundIdPerMyId; 
 
     function PriceUpdaterImpl(address _owner) {
         owner = _owner;
@@ -37,16 +37,16 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
         if (msg.sender != oraclize_cbAddress()) throw;
 
         require(roundIdPerMyId[myid]>0);
-        uint roundId=roundIdPerMyId[myid]-1;
+        uint32 roundId=roundIdPerMyId[myid]-1;
         
-        uint target = stringToUint(result); // TODO: extra checks
+        uint32 target = stringToUint32(result); // TODO: extra checks
         LogUpdate(target);
         if (target > 0 && address(bettingon)!=0) {
             bettingon.setTargetValue(roundId,target);
         }
     }
     
-    function schedule(uint _roundId, uint _timeOffset) {
+    function schedule(uint32 _roundId, uint64 _timeOffset) {
         require(msg.sender == address(bettingon));
 
         if (oraclize.getPrice("URL") > this.balance) {
@@ -58,12 +58,12 @@ contract PriceUpdaterImpl is PriceUpdater, usingOraclize {
         roundIdPerMyId[myid]=_roundId+1;
     }
     
-    function stringToUint(string s) internal constant returns (uint result) {
+    function stringToUint32(string s) internal constant returns (uint32 result) {
         bytes memory b = bytes(s);
-        uint i;
+        uint32 i;
         result = 0;
         for (i = 0; i < b.length; i++) {
-            uint c = uint(b[i]);
+            uint8 c = uint8(b[i]);
             if (c >= 48 && c <= 57) {
                 result = result * 10 + (c - 48);
             }
