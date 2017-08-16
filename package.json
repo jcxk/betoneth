@@ -42,6 +42,7 @@
     "webpack-dev-server": "^2.5.1"
   },
   "dependencies": {
-    "ethpm": "0.0.14"
+    "ethpm": "0.0.14",
+    "jquery": "^3.2.1"
   }
 }
