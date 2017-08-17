@@ -48,7 +48,7 @@ export class Home extends React.Component {
         this.contractManager.watchEvents();
     }
 
-    web3init(){
+    async web3init(){
       var self = this;
       window.addEventListener('load', () =>  {
 
@@ -65,8 +65,13 @@ export class Home extends React.Component {
             console.log(window.web3.version.network, 'web3 network');
             let account = accs != null ? accs[0] : false;
             console.log(account,'getting account');
-            this.getContract(window.web3,
-              {env : env , account: account}
+            let bettingonAddress =
+              ContractManager.getContractByPathAndAddr('BettingonUITestDeploy', window.web3.currentProvider);
+            self.getContract(window.web3,
+              {
+                env : env ,
+                account: account,
+                address: bettingonAddress }
             );
             this.contractManager.account=account;
             console.log(this.contractManager);

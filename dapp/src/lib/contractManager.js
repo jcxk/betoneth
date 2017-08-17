@@ -41,7 +41,7 @@ class contractManager extends BaseContractManager {
   constructor (web3, opts = {}) {
     let contractName = 'Bettingon';
     if (opts.env === 'development') {
-       contractName += 'Test';
+       //contractName += 'UITestDeploy';
       opts['json'] = require("../../../build/contracts/"+contractName+".json");
     } else {
       opts['address'] = mainNetAddress;

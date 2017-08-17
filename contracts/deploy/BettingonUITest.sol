@@ -4,20 +4,20 @@ import "../BettingonImpl.sol";
 import "../PriceUpdaterImpl.sol";
 
 contract BettingonUITest is BettingonImpl {
-    
+
    function BettingonUITest(
         address owner,
         address priceUpdaterAddress
     ) BettingonImpl(
         owner,
         priceUpdaterAddress,
-        /* directory           */ 0, 
+        /* directory           */ 0,
         /* betCycleLength      */ 60*4,
         /* betCycleOffset      */ 0,
         /* betMinReveaLength   */ 60,
         /* betMaxReveaLength   */ 60*3,
         /* betAmount           */ 10**16,  // 0.01 eths
-        /* platformFee         */ 1, 
+        /* platformFee         */ 1,
         /* platformFeeAddress  */ 0,
         /* boatFee             */ 3
     ) {
@@ -32,10 +32,10 @@ contract BettingonUITest is BettingonImpl {
 }
 
 contract BettingonUITestDeploy {
-    
+
     PriceUpdaterImpl public pu;
     BettingonUITest  public bon;
-    
+
     function BettingonUITestDeploy(
         address oar
     ) {
@@ -47,5 +47,5 @@ contract BettingonUITestDeploy {
             "json(https://api.coinmarketcap.com/v1/ticker/ethereum/).0.price_usd"
         );
     }
-    
+
 }

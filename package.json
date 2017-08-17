@@ -10,12 +10,13 @@
     "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
     "deploy-dapp": "surge dapp/build",
     "dapp-serve": "npm run build-dapp && http-server-spa dapp/build",
-    "testrpc": "testrpc -d -u 0 -u 1",
+    "testrpc": "testrpc -d -u 0 -u 1 -u 9",
     "contract-update": "truffle migrate --reset",
     "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc",
     "eslint-dapp": "eslint -c dapp/.eslintrc.json dapp",
     "deploy": "eslint -c dapp/.eslintrc.json dapp --quiet && npm run build && npm run deploy-dapp",
-    "test": "npm-run-all"
+    "test": "npm-run-all",
+    "eth-bridge": "cd node_modules/ethereum-bridge && node bridge.js -a 9 -H localhost:8545 --gas 4700000 --instance latest"
   },
   "author": [
     "Juan Carlos Escamilla",
@@ -75,6 +76,7 @@
     "eslint-plugin-promise": "^3.5.0",
     "eslint-plugin-react": "^7.1.0",
     "eslint-plugin-standard": "^2.3.1",
+    "ethereum-bridge": "git+https://github.com/jcxk/ethereum-bridge.git",
     "ethereumjs-testrpc": "^4.0.1",
     "html-webpack-plugin": "^2.29.0",
     "http-server-spa": "^1.2.0",

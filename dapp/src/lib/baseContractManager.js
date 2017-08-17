@@ -16,6 +16,24 @@ class BaseContractManager {
     this.init();
   }
 
+  static async getContractByPathAndAddr(contractName, provider, addr = false) {
+    let c = contract(
+      require("../../../build/contracts/" + contractName + ".json")
+    );
+    let address = "";
+    c.setProvider(provider);
+    let r = "", rs = "", t= "";
+    if (addr != false) {
+        t ="asd";
+
+    } else {
+      r = await c.deployed().then( (c) => c.bon());
+      t = r;
+
+    }
+    return t;
+  }
+
   getOptions() {
 
     let opts = { from: this.account };
@@ -27,7 +45,12 @@ class BaseContractManager {
 
   async init () {
     this.contract = await this.contractPromise.then(
-      (contractObj) => {return contractObj}
+      (contractObj) =>
+      {
+        let bettingonAddr = contractObj.bon();
+        return
+
+      }
     );
     this.abiNames = _.map(this.contract.abi, 'name');
     let configVarsPromises = this.configVars.map((item) => {
