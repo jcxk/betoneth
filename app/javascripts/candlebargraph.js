@@ -69,7 +69,7 @@ export default class CandlebarGraph {
         if ( c > 0 && c % 4 == 0 ) {
           this.drawTimeGrid(data[c].date,CandlebarGraph.GRIDCOLOR)
         }
-        console.log(data[c].high)
+
         const x = (data[c].date - this._startTime) / this._scaleTime
 
         const y_high = this._canvas.height - (data[c].high - this._loValue) / this._scaleValue
