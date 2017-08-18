@@ -1,11 +1,13 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.14;
 
-import "./lib/SafeMath.sol";
+import "./lib/SafeMath256.sol";
+import "./lib/SafeMath64.sol";
 import "./Bettingon.sol";
 
 contract BettingonImpl is Bettingon {
 
-    using SafeMath for uint;
+    using SafeMath256 for uint;
+    using SafeMath64 for uint64;
 
     /// code ===================================================
 
@@ -15,14 +17,14 @@ contract BettingonImpl is Bettingon {
         address _owner,
         address _priceUpdaterAddress,
         address _directoryAddress,
-        uint    _betCycleLength,
-        uint    _betCycleOffset,
-        uint    _betMinRevealLength,
-        uint    _betMaxRevealLength,
+        uint64  _betCycleLength,
+        uint64  _betCycleOffset,
+        uint64  _betMinRevealLength,
+        uint64  _betMaxRevealLength,
         uint    _betAmount,
-        uint    _platformFee,
+        uint8   _platformFee,
         address _platformFeeAddress,
-        uint    _boatFee
+        uint8   _boatFee
         ) {
 
       owner = _owner;
@@ -43,7 +45,7 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function bet(address _sender, Round storage round, uint _target) internal {
+    function bet(address _sender, Round storage round, uint32 _target) internal {
 
         // -- check if someone already bet on this target
         if (round.betTargets[_target].account != 0 ) {
@@ -62,15 +64,15 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function bet(uint _roundId, uint[] _targets) payable {
+    function bet(uint32 _roundId, uint32[] _targets) payable {
 
         // -- check owner finished this bettington
-        require(stopAtRound < _roundId);
+        require(stopAtRoundId < _roundId);
 
         require(_targets.length > 0);
 
         // -- check that the bet is not outdated due network congestion
-        var (roundId,) = thisRoundInfo(now);
+        var (roundId,) = thisRoundInfo(uint64(now));
         
         if (roundId!=_roundId) {
             LogBetOutdated(_roundId,msg.sender,_targets);
@@ -102,10 +104,10 @@ contract BettingonImpl is Bettingon {
         
     }
 
-    function withdraw(uint _roundId) {
+    function withdraw(uint32 _roundId) {
 
-        uint roundNo = roundById[_roundId];
-        RoundStatus status = getRoundStatus(roundNo,now);
+        uint32 roundNo = roundById[_roundId];
+        RoundStatus status = getRoundStatus(roundNo,uint64(now));
         
         if(status == RoundStatus.OPEN) {
             return;
@@ -167,7 +169,7 @@ contract BettingonImpl is Bettingon {
         // ------------------------------------------------------------------
         //  case RESOLVED
 
-        if(getRoundStatus(roundNo,now)!=RoundStatus.RESOLVED) {
+        if(getRoundStatus(roundNo,uint64(now))!=RoundStatus.RESOLVED) {
             return;
         }
 
@@ -196,12 +198,12 @@ contract BettingonImpl is Bettingon {
 
     }
 
-    function setTargetValue(uint _roundId, uint _target) {
+    function setTargetValue(uint32 _roundId, uint32 _target) {
         
         require(address(priceUpdater)==msg.sender || address(priceUpdater)==address(this));
 
-        uint roundNo = roundById[_roundId];
-        assert(getRoundStatus(roundNo, now) == RoundStatus.PRICEWAIT);
+        uint32 roundNo = roundById[_roundId];
+        assert(getRoundStatus(roundNo, uint64(now)) == RoundStatus.PRICEWAIT);
 
         rounds[roundNo].target = _target;
 
@@ -209,18 +211,18 @@ contract BettingonImpl is Bettingon {
         
     }
 
-    function terminate(uint _stopAtRound) {
+    function terminate(uint32 _stopAtRoundId) {
         require (msg.sender == owner );
 
-        stopAtRound = _stopAtRound;
+        stopAtRoundId = _stopAtRoundId;
     }
 
     // internal functions ------------------------------------------
 
-    function getRoundStatus(uint _roundNo, uint _now) internal constant returns (RoundStatus) {
+    function getRoundStatus(uint _roundNo, uint64 _now) internal constant returns (RoundStatus) {
 
         if (_now == 0) {
-            _now = now;
+            _now = uint64(now);
         }
 
         if (_roundNo > rounds.length) {
@@ -265,22 +267,23 @@ contract BettingonImpl is Bettingon {
     }
 
 
-    function thisRoundInfo(uint _now) internal returns (uint roundId, uint closeDate) {
+    function thisRoundInfo(uint64 _now) internal returns (uint32 roundId, uint64 closeDate) {
 
         if (_now == 0) {
-            _now = now;
+            _now = uint64(now);
         }
 
-       roundId = _now / betCycleLength;
-       uint startDate = _now.sub(_now % betCycleLength).add(betCycleOffset);
+       roundId = uint32(uint64(_now).div(betCycleLength));
+
+       uint64 startDate = _now.sub(_now % betCycleLength).add(betCycleOffset);
        closeDate = startDate.add(betCycleLength);
        return;
     }
 
     function createRoundIfRequiered() internal {
 
-       var (roundId,closeDate) = thisRoundInfo(now);
-       uint lastRoundId=0;
+       var (roundId,closeDate) = thisRoundInfo(uint64(now));
+       uint32 lastRoundId=0;
 
        if (rounds.length > 0) {
             lastRoundId = rounds[rounds.length-1].roundId;
@@ -292,36 +295,39 @@ contract BettingonImpl is Bettingon {
             rounds[rounds.length-1].roundId = roundId;
             rounds[rounds.length-1].closeDate = closeDate;
 
-            roundById[roundId] = rounds.length-1;
+            roundById[roundId] = uint32(rounds.length)-1;
             
-            priceUpdater.schedule(roundId, closeDate-now+betMinRevealLength);
+            priceUpdater.schedule(
+                roundId,
+                closeDate.sub(uint64(now)).add(betMinRevealLength)
+            );
         }
     }
 
-    function resolve(uint _roundId, uint _times) {
+    function resolve(uint32 _roundId, uint _times) {
         resolveRoundNo(roundById[_roundId],_times);
     }
 
     /// _times < 0 => gas limit , times > 0 just do it n times maximum
-    function resolveRoundNo(uint _roundNo, uint _times) internal {
+    function resolveRoundNo(uint32 _roundNo, uint _times) internal {
 
-        if (getRoundStatus(_roundNo,now)!=RoundStatus.PRICESET) {
+        if (getRoundStatus(_roundNo,uint64(now))!=RoundStatus.PRICESET) {
             return;
         }
   
         Round storage round = rounds[_roundNo];
   
-        uint target           = round.target;
-        uint lastCheckedBetNo = round.lastCheckedBetNo;
-        uint closestBetNo     = round.closestBetNo;
+        uint32 target           = round.target;
+        uint32 lastCheckedBetNo = round.lastCheckedBetNo;
+        uint32 closestBetNo     = round.closestBetNo;
   
         while (lastCheckedBetNo < round.bets.length) {
             
            if (lastCheckedBetNo == 0) {
                closestBetNo = 0;
            } else {
-               uint thisTarget = round.bets[lastCheckedBetNo].target;
-               uint bestTarget = round.bets[closestBetNo].target;
+               uint32 thisTarget = round.bets[lastCheckedBetNo].target;
+               uint32 bestTarget = round.bets[closestBetNo].target;
                if (diff(thisTarget,target) < diff(bestTarget,target)) {
                     closestBetNo = lastCheckedBetNo;             
                }
@@ -350,15 +356,15 @@ contract BettingonImpl is Bettingon {
 
     // web3 helpers ------------------------------------------------
 
-    function getRoundById(uint _roundId, uint _now) external constant returns (
-        uint        roundId,
-        uint        roundNo,
+    function getRoundById(uint32 _roundId, uint64 _now) external constant returns (
+        uint32      roundId,
+        uint32      roundNo,
         RoundStatus status,
-        uint        closeDate,
-        uint        betCount,
-        uint        target,
-        uint        lastCheckedBetNo,
-        uint        closestBetNo
+        uint64      closeDate,
+        uint32      betCount,
+        uint32      target,
+        uint32      lastCheckedBetNo,
+        uint32      closestBetNo
     ) {
         if (_roundId == 0) {
             // determine the last round 
@@ -366,10 +372,10 @@ contract BettingonImpl is Bettingon {
                 roundNo = 0;
             } else if (getRoundStatus(rounds.length-1,_now)==RoundStatus.OPEN) {
                 // if last round is open, then return last round
-                roundNo = rounds.length-1;
+                roundNo = uint32(rounds.length)-1;
             } else  {
                 // return the new round
-                roundNo = rounds.length;
+                roundNo = uint32(rounds.length);
             }
         } else {
             roundNo = roundById[_roundId];
@@ -379,7 +385,7 @@ contract BettingonImpl is Bettingon {
            getRoundAt(roundNo,_now);
     }
 
-    function isBetAvailable(uint _target, uint _now) returns (bool) {
+    function isBetAvailable(uint32 _target, uint64 _now) returns (bool) {
 
         if (getRoundStatus(rounds.length-1, _now)!=RoundStatus.OPEN) {
             return true;
@@ -388,21 +394,21 @@ contract BettingonImpl is Bettingon {
         return rounds[rounds.length-1].betTargets[_target].account == 0;
     }
     
-    function getRoundCount(uint _now) external constant returns (uint) {
+    function getRoundCount(uint64 _now) external constant returns (uint32) {
         if (getRoundStatus(rounds.length,_now) == RoundStatus.OPEN) {
-            return rounds.length + 1;
+            return uint32(rounds.length) + 1;
         }
-        return rounds.length;
+        return uint32(rounds.length);
     }
 
-    function getRoundAt(uint _roundNo,uint _now) constant returns (
-        uint        roundId,
+    function getRoundAt(uint32 _roundNo,uint64 _now) constant returns (
+        uint32      roundId,
         RoundStatus status,
-        uint        closeDate,
-        uint        betCount,
-        uint        target,
-        uint        lastCheckedBetNo,
-        uint        closestBetNo
+        uint64      closeDate,
+        uint32      betCount,
+        uint32      target,
+        uint32      lastCheckedBetNo,
+        uint32      closestBetNo
     ) {
         
         status = getRoundStatus(_roundNo, _now);
@@ -419,24 +425,32 @@ contract BettingonImpl is Bettingon {
 
         roundId = rounds[_roundNo].roundId;
         closeDate = rounds[_roundNo].closeDate;
-        betCount = rounds[_roundNo].bets.length;
+        betCount = uint32(rounds[_roundNo].bets.length);
         target = rounds[_roundNo].target;
         lastCheckedBetNo = rounds[_roundNo].lastCheckedBetNo;
         closestBetNo = rounds[_roundNo].closestBetNo;
         return;
     }
     
-    function getBetAt(uint _roundNo, uint _betNo) external constant returns (
+    function getBetAt(uint32 _roundNo, uint32 _betNo) external constant returns (
         address account,
-        uint    target
+        uint32  target
     ){
         account = rounds[_roundNo].bets[_betNo].account;
         target = rounds[_roundNo].bets[_betNo].target;
     }
     
-    function getNow() external constant returns (uint) {
-        return now;
+    function getNow() external constant returns (uint64) {
+        return uint64(now);
     }
+
+    function getRoundPendingAmout(uint32 _roundId, address _addr) external constant returns (uint) {
+        
+        uint32 roundNo = roundById[_roundId];
+
+
+    }
+
 
     /// generic helpers ------------------------------------------------
 
@@ -446,7 +460,7 @@ contract BettingonImpl is Bettingon {
       return size > 0;
     }
 
-    function percentage(uint _amount, uint _perc) internal constant returns (uint) {
+    function percentage(uint _amount, uint8 _perc) internal constant returns (uint) {
         return _amount.mul(10**16).mul(_perc).div(10**18);
     }
 
@@ -457,5 +471,7 @@ contract BettingonImpl is Bettingon {
            return _b.sub(_a);
        }
     }
+
+
 
 }
