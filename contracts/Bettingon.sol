@@ -1,4 +1,4 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.14;
 
 import "./Directory.sol";
 import "./PriceUpdater.sol";
@@ -8,56 +8,56 @@ contract Bettingon {
     /// events -------------------------------------------------
 
     event LogError(string error);
-    event LogWinner(uint roundId, address winner);
-    event LogWinnerPaid(uint roundId, address winner, uint amount, uint boat);
-    event LogBet(uint roundId, address account, uint[] targets);
-    event LogBetOutdated(uint roundId, address account, uint[] targets);
-    event LogRefund(uint roundId, address account, uint amount);
-    event LogPriceSet(uint roundId, uint target);
+    event LogWinner(uint32 roundId, address winner);
+    event LogWinnerPaid(uint32 roundId, address winner, uint amount, uint boat);
+    event LogBet(uint32 roundId, address account, uint32[] targets);
+    event LogBetOutdated(uint32 roundId, address account, uint32[] targets);
+    event LogRefund(uint32 roundId, address account, uint amount);
+    event LogPriceSet(uint32 roundId, uint32 target);
 
     /// types ---------------------------------------------------
 
     struct Bet {
         address account;
-        uint    target;     // in ethers
+        uint32  target;     // in ethers
     }
 
     struct Round {
-        uint                   roundId;     // the id of the round
+        uint32                 roundId;     // the id of the round
 
         uint                   balance;     // total money balance 
-        uint                   closeDate;   // date this round closes
+        uint64                 closeDate;   // date this round closes
 
-        uint                   target;      // is the goal price
+        uint32                 target;      // is the goal price
 
         Bet[]                  bets;
         mapping(uint=>Bet)     betTargets;
         mapping(address=>uint) amountPerAddress;
 
-        uint                   lastCheckedBetNo;
-        uint                   closestBetNo;
+        uint32                 lastCheckedBetNo;
+        uint32                 closestBetNo;
     }
 
     /// inmutable construction parameters ----------------------
 
-    uint         public betCycleLength;      // how long the bet cicle lasts. eg 1 day
-    uint         public betCycleOffset;      // the offset of the betting cicle
-    uint         public betMinRevealLength;  // minimum time for revealig target
-    uint         public betMaxRevealLength;  // maxmimum time for revealig target
+    uint64       public betCycleLength;      // how long the bet cicle lasts. eg 1 day
+    uint64       public betCycleOffset;      // the offset of the betting cicle
+    uint64       public betMinRevealLength;  // minimum time for revealig target
+    uint64       public betMaxRevealLength;  // maxmimum time for revealig target
     uint         public betAmount;           // bet amount in ethers
-    uint         public platformFee;         // percentage that goes to sharePlatform
+    uint8        public platformFee;         // percentage that goes to sharePlatform
     address      public platformFeeAddress;  // address where foes the platfromFee
-    uint         public boatFee;             // boat for the bet that matches the amount
+    uint8        public boatFee;             // boat for the bet that matches the amount
     PriceUpdater public priceUpdater;        // who is allowed to update the price
     Directory    public directory;
     address      public owner;
 
     /// state variables ----------------------------------------
 
-    Round[]   public        rounds;
-    mapping   (uint=>uint)  roundById;
-    uint      public        boat;
-    uint      public        stopAtRound;
+    Round[]   public           rounds;
+    mapping   (uint32=>uint32) roundById;
+    uint      public           boat;
+    uint32    public           stopAtRoundId;
 
     /*
        Flow diagram for RoundStatus
@@ -77,42 +77,44 @@ contract Bettingon {
         FINISHED       // Bet paid
     }
 
-    function bet(uint _roundId, uint[] _targets) payable;
-    function resolve(uint _roundNo, uint _times);    
-    function withdraw(uint _roundId);
-    function setTargetValue(uint _roundNo, uint _target);
-    function terminate(uint _stopAtRound);
+    function bet(uint32 _roundId, uint32[] _targets) payable;
+    function resolve(uint32 _roundNo, uint _times);    
+    function withdraw(uint32 _roundId);
+    function setTargetValue(uint32 _roundNo, uint32 _target);
+    function terminate(uint32 _stopAtRoundId);
 
-    function getRoundById(uint _roundId, uint _now) external constant returns (
-        uint roundId,
-        uint roundNo,
+    function getRoundById(uint32 _roundId, uint64 _now) external constant returns (
+        uint32 roundId,
+        uint32 roundNo,
         RoundStatus status,
-        uint closeDate,
-        uint betCount,
-        uint target,
-        uint lastCheckedBetNo,
-        uint closestBetNo
+        uint64 closeDate,
+        uint32 betCount,
+        uint32 target,
+        uint32 lastCheckedBetNo,
+        uint32 closestBetNo
     );
 
-    function isBetAvailable(uint _target, uint _now) returns (bool);
+    function isBetAvailable(uint32 _target, uint64 _now) returns (bool);
 
-    function getRoundCount(uint _now) external constant returns (uint);
+    function getRoundCount(uint64 _now) external constant returns (uint32);
 
-    function getRoundAt(uint _roundNo,uint _now) constant returns (
-        uint roundId,
+    function getRoundAt(uint32 _roundNo,uint64 _now) constant returns (
+        uint32 roundId,
         RoundStatus status,
-        uint closeDate,
-        uint betCount,
-        uint target,
-        uint lastCheckedBetNo,
-        uint closestBetNo
+        uint64 closeDate,
+        uint32 betCount,
+        uint32 target,
+        uint32 lastCheckedBetNo,
+        uint32 closestBetNo
     );
     
-    function getBetAt(uint _roundNo, uint _betNo) external constant returns (
+    function getBetAt(uint32 _roundNo, uint32 _betNo) external constant returns (
         address account,
-        uint    target
+        uint32  target
     );
-    
-    function getNow() external constant returns (uint);
+
+    function getRoundPendingAmout(uint32 _roundId, address _addr) external constant returns (uint);
+
+    function getNow() external constant returns (uint64);
 
 }

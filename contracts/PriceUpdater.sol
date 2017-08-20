@@ -1,5 +1,5 @@
-pragma solidity ^0.4.11;
+pragma solidity ^0.4.14;
 
 contract PriceUpdater {
-    function schedule(uint _roundId, uint _timeOffset);
+    function schedule(uint32 _roundId, uint64 _timeOffset);
 }
