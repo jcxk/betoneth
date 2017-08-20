@@ -72,7 +72,7 @@ class contractManager extends BaseContractManager {
     let roundNo = roundStart;
     for (roundNo; roundNo < lastRound; roundNo++) {
       rounds.push(
-        await this.getRoundFullInfo(roundNo, Date.now())
+        await this.getRoundFullInfo(roundNo, this.getNow())
       )
     }
     //console.log(lastRound, roundStart);
@@ -85,7 +85,9 @@ class contractManager extends BaseContractManager {
     let betNo = 0;
     let betsPromises = [];
     for (betNo; betNo < betCount; betNo++) {
-      betsPromises.push(this.contractCall('getBetAt', [roundId, betNo]));
+      betsPromises.push(
+        this.contractCall('getBetAt', [roundId, betNo])
+      );
     }
     return Promise.all(betsPromises).then((bets) => {
       return _.values(bets);
@@ -93,7 +95,10 @@ class contractManager extends BaseContractManager {
   }
 
   async getRoundInfo(roundNo, now) {
-    return await this.contractCall("getRoundAt", [roundNo, now]);
+    return await this.contractCall(
+      "getRoundAt",
+      [roundNo, now]
+    );
   }
 
   async getRoundFullInfo(roundNo, now) {
@@ -135,7 +140,7 @@ class contractManager extends BaseContractManager {
   async setPrice (price) {
     console.log(price);
     return await this.doTransaction(
-      this.contract.updateEthPrice(price,this.getOptions())
+      this.contract.__updateEthPrice(price,"",this.getOptions())
     );
 
   }
@@ -154,25 +159,6 @@ class contractManager extends BaseContractManager {
       this.contract.withdraw(roundId,this.getOptions())
     );
 
-  }
-
-  timediff2str(diff) {
-
-    const d = diff / (24*3600) ; diff = diff%(24*3600)
-    const h = diff / (3600) ; diff = diff % 3600
-    const m = diff / (60)
-    const s = diff % 60
-    const pad = function (v) {
-      v = Math.floor(v);
-      if (v>9) return ""+v;
-      return "0"+v;
-    }
-
-    if (d>0) {
-      return pad(d)+"d"+pad(h)+"h"+pad(m)+"m";
-    } else {
-      return pad(h)+"h"+pad(m)+"m";
-    }
   }
 
 }

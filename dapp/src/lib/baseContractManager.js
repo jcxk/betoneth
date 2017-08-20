@@ -11,7 +11,7 @@ class BaseContractManager {
     this.env = opts.env;
     let contractObj = contract(opts.json);
     contractObj.setProvider(web3.currentProvider);
-    this.contractPromise = (opts.env === 'production') ?
+    this.contractPromise = (opts.address != null) ?
       Promise.resolve(contractObj.at(opts.address)) : contractObj.deployed();
     this.init();
   }
@@ -20,18 +20,13 @@ class BaseContractManager {
     let c = contract(
       require("../../../build/contracts/" + contractName + ".json")
     );
-    let address = "";
     c.setProvider(provider);
-    let r = "", rs = "", t= "";
     if (addr != false) {
-        t ="asd";
-
+        return c.at(addr);
     } else {
-      r = await c.deployed().then( (c) => c.bon());
-      t = r;
-
+      return await c.deployed();
     }
-    return t;
+
   }
 
   getOptions() {
@@ -44,14 +39,7 @@ class BaseContractManager {
   }
 
   async init () {
-    this.contract = await this.contractPromise.then(
-      (contractObj) =>
-      {
-        let bettingonAddr = contractObj.bon();
-        return
-
-      }
-    );
+    this.contract = await this.contractPromise;
     this.abiNames = _.map(this.contract.abi, 'name');
     let configVarsPromises = this.configVars.map((item) => {
       try {
@@ -121,9 +109,7 @@ class BaseContractManager {
 
 
   watchEvents() {
-    this.contract.allEvents({fromBlock: 0, toBlock: 'latest'}).watch( (error, result) => {
-       console.log(error != undefined ? error: { event: result.event, args: result.args } ,'event');
-    });
+    return this.contract.allEvents({fromBlock: 'latest', toBlock: 'latest'});
   }
 
   getTransactionReceiptMined(txnHash, interval = 500) {

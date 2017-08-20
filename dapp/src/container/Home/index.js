@@ -45,7 +45,19 @@ export class Home extends React.Component {
         console.log(
           this.contractManager.account, 'get account'
         );
-        this.contractManager.watchEvents();
+        this.contractManager.watchEvents().watch( (error, result) => {
+          if (error == null) {
+            switch (result.event) {
+              case "LogBet":
+                this.props.dispatch(
+                  {
+                    type: 'PLACE_BET', payload: result.args
+                  });
+                break;
+
+            }
+          }
+        });
     }
 
     async web3init(){
@@ -60,14 +72,14 @@ export class Home extends React.Component {
           window.web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
         }
         window.web3.eth.getAccounts(
-          (err,accs) => {
+          async (err,accs) => {
             let env = window.web3.version.network == 1 ? 'production' : 'development';
             console.log(window.web3.version.network, 'web3 network');
             let account = accs != null ? accs[0] : false;
             console.log(account,'getting account');
-            let bettingonAddress =
-              ContractManager.getContractByPathAndAddr('BettingonUITestDeploy', window.web3.currentProvider);
-            self.getContract(window.web3,
+            let bettingonUI = await ContractManager.getContractByPathAndAddr('BettingonUITestDeploy', window.web3.currentProvider);
+            let bettingonAddress = await bettingonUI.bon();
+            await self.getContract(window.web3,
               {
                 env : env ,
                 account: account,
@@ -107,7 +119,7 @@ export class Home extends React.Component {
            }
       });
 
-      await this.contractManager.setPrice(220);
+      /*
       this.props.dispatch(
         AppActions.getRounds(
           await this.contractManager.getRounds(
@@ -115,7 +127,7 @@ export class Home extends React.Component {
           )
         )
       );
-
+*/
     }
 
     renderBetForm() {
@@ -142,7 +154,7 @@ export class Home extends React.Component {
                   </tr>
                   <tr>
                     <td>TIME TO CLOSE:</td><td>Bets are for price published till
-                    {moment(currentRound.closeDate).local().format("YYYY-MM-DD HH:mm")}</td>
+                    {moment.unix(currentRound.closeDate).local().format("YYYY-MM-DD HH:mm")}</td>
                   </tr>
                   </tbody>
                 </table>
@@ -183,7 +195,8 @@ export class Home extends React.Component {
           Header: 'Time to Close',
           accessor: 'closeDate',
           Cell: props => {
-            return this.contractManager.timediff2str(props.value-new Date())
+            console.log(props.value);
+            return moment.unix(props.value).local().format('YYYY-MM-DD HH:mm')
           }
         },
         {
