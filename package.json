@@ -10,7 +10,7 @@
     "dev-dapp": "webpack-dev-server --debug --hot --open --port=8081 --config dapp/webpack.config.js --content-base dapp/build",
     "deploy-dapp": "surge dapp/build",
     "dapp-serve": "npm run build-dapp && http-server-spa dapp/build",
-    "testrpc": "testrpc -d -u 0 -u 1 -u 9",
+    "testrpc": "testrpc -d -u 0 -u 1 -u 9 testrpc -l 4700000000000 ",
     "contract-update": "truffle migrate --reset",
     "dev-dapp-rpc": "npm-run-all --parallel dev-dapp contract-update testrpc",
     "eslint-dapp": "eslint -c dapp/.eslintrc.json dapp",
@@ -25,9 +25,6 @@
   ],
   "license": "GPL-3.0",
   "dependencies": {
-    "blockies": "0.0.2",
-    "jquery": "^3.2.1",
-    "toastr": "^2.1.2",
     "enzyme": "^2.9.1",
     "ethpm": "0.0.14",
     "html-webpack-harddisk-plugin": "^0.1.0",
