@@ -11,13 +11,15 @@ export default function appReducer(state = initialState, action) {
       case 'PLACE_BET':
             console.log(action.payload.roundId.toNumber());
             let r = _.find(state.rounds, ['roundId', action.payload.roundId.toNumber() ]);
-            if (r != null) {
+
+            let betObj = {
+              account: action.payload.account,
+              target: action.payload.targets[0].toNumber()
+            };
+            let b = _.find(r, betObj);
+            if (r != null && b==null) {
               r.betCount++;
-              r.bets.push(
-                {
-                  account: action.payload.account,
-                  target: action.payload.targets[0].toNumber()}
-              );
+              r.bets.push(betObj);
             }
             return {
                 ...state

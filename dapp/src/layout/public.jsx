@@ -37,18 +37,6 @@ class PublicLayout extends Component {
             <Menu.Item as={NavLink} exact to='/'>Home</Menu.Item>
             <Menu.Item as={NavLink} to='/about'>About</Menu.Item>
             <Menu.Item as={NavLink}  to='/contract'>Contract</Menu.Item>
-            <Menu.Menu position='right'>
-              <Dropdown item text='CryptoCurrency'>
-                <Dropdown.Menu>
-                  <Dropdown.Item>ETH</Dropdown.Item>
-                  <Dropdown.Item>BITCOIN</Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
-
-              <Menu.Item>
-                <Button primary>Sign Up</Button>
-              </Menu.Item>
-            </Menu.Menu>
           </Menu>
         </header>
 

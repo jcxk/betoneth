@@ -11,7 +11,7 @@ import * as _ from 'lodash';
 import ReactTable from 'react-table';
 import { Page, Section } from 'react-page-layout';
 import { Container, Grid, Dimmer, Loader } from 'semantic-ui-react';
-import TradingViewWidget from '../../components/tradingView';
+//import TradingViewWidget from '../../components/tradingViewWidget';
 export class Home extends React.Component {
 
 
@@ -41,9 +41,6 @@ export class Home extends React.Component {
                     await this.contractManager.getRoundCount(Date.now())
                 )
             )
-        );
-        console.log(
-          this.contractManager.account, 'get account'
         );
         this.contractManager.watchEvents().watch( (error, result) => {
           if (error == null) {
@@ -234,7 +231,7 @@ export class Home extends React.Component {
                 {this.renderBetForm()}
               </Grid.Column>
               <Grid.Column  floated="left" width={5}>
-                  <TradingViewWidget width="360" height="360" currency="ETH" />
+                  <p>candlestick widget</p>
               </Grid.Column>
             </Grid>
 
